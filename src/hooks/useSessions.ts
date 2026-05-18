@@ -3,120 +3,128 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import type { Database, SessionMedia, Session, SessionStudentReport } from '@/types/database'
 
+type SessionInsert = Database['public']['Tables']['sessions']['Insert']
 type SessionStudentReportInsert = Database['public']['Tables']['session_student_reports']['Insert']
 
 export interface SessionWithDetails extends Session {
-  teams: { team_code: string; nama_tim: string | null } | null
+  teams: { id: string; team_code: string; research_title: string | null } | null
   session_student_reports: SessionStudentReport[]
-  session_docs: Array<{ id: string; storage_path: string }>
+  session_docs: Array<{ id: string; photo_url: string; sort_order: number }>
 }
 
 export interface SessionFormData {
   class_id: string | null
   team_id: string
-  date: string
-  duration_minutes: number
+  session_date: string // ISO timestamptz
+  duration_mins: number
   media: SessionMedia
-  location: string
+  location: string | null
   topic: string
-  achievement: string
-  homework: string
-  evaluation: string
+  achievement: string | null
+  homework: string | null
+  evaluation: string | null
   studentReports: Omit<SessionStudentReportInsert, 'session_id'>[]
-  photoPaths: string[]
+  photoUrls: string[]
 }
 
+/* ─── Queries ───────────────────────────────────────────── */
+
 export function useCoachSessions() {
-  const userId = useAuthStore((s) => s.user?.id)
+  const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
 
   return useQuery<SessionWithDetails[]>({
-    queryKey: ['sessions', 'coach', userId],
+    queryKey: ['sessions', 'coach', coachId],
     queryFn: async () => {
-      if (!userId) return []
-
-      const { data: teams } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('coach_id', userId)
-        .is('deleted_at', null)
-
-      const teamIds = ((teams ?? []) as Array<{ id: string }>).map((t) => t.id)
-      if (teamIds.length === 0) return []
-
+      if (!coachId) return []
       const { data, error } = await supabase
         .from('sessions')
-        .select('*, teams(team_code, nama_tim), session_student_reports(*), session_docs(*)')
-        .in('team_id', teamIds)
+        .select(`
+          *,
+          teams(id, team_code, research_title),
+          session_student_reports(*),
+          session_docs(id, photo_url, sort_order)
+        `)
+        .eq('coach_id', coachId)
         .is('deleted_at', null)
-        .order('date', { ascending: false })
+        .order('session_date', { ascending: false })
       if (error) throw error
-      return (data ?? []) as SessionWithDetails[]
+      return (data ?? []) as unknown as SessionWithDetails[]
     },
-    enabled: !!userId,
+    enabled: !!coachId,
   })
 }
 
 export function useStudentSessions(teamId: string | null | undefined) {
-  return useQuery<Session[]>({
+  return useQuery<SessionWithDetails[]>({
     queryKey: ['sessions', 'student', teamId],
     queryFn: async () => {
       if (!teamId) return []
       const { data, error } = await supabase
         .from('sessions')
-        .select('*, session_student_reports(*), session_docs(*)')
+        .select(`
+          *,
+          teams(id, team_code, research_title),
+          session_student_reports(*),
+          session_docs(id, photo_url, sort_order)
+        `)
         .eq('team_id', teamId)
         .is('deleted_at', null)
-        .order('date', { ascending: false })
+        .order('session_date', { ascending: false })
       if (error) throw error
-      return (data ?? []) as Session[]
+      return (data ?? []) as unknown as SessionWithDetails[]
     },
     enabled: !!teamId,
   })
 }
 
+/* ─── Mutations ─────────────────────────────────────────── */
+
 export function useCreateSession() {
   const qc = useQueryClient()
+  const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
 
   return useMutation({
-    mutationFn: async (formData: SessionFormData) => {
-      const { data: session, error: sessionError } = await supabase
+    mutationFn: async (form: SessionFormData) => {
+      if (!coachId) throw new Error('Akun pembimbing belum lengkap')
+      const payload: SessionInsert = {
+        class_id: form.class_id,
+        team_id: form.team_id,
+        coach_id: coachId,
+        session_date: form.session_date,
+        duration_mins: form.duration_mins,
+        media: form.media,
+        location: form.location,
+        topic: form.topic,
+        achievement: form.achievement,
+        homework: form.homework,
+        evaluation: form.evaluation,
+      }
+      const { data, error } = await supabase
         .from('sessions')
-        .insert({
-          class_id: formData.class_id,
-          team_id: formData.team_id,
-          date: formData.date,
-          duration_minutes: formData.duration_minutes,
-          media: formData.media,
-          location: formData.location,
-          topic: formData.topic,
-          achievement: formData.achievement,
-          homework: formData.homework,
-          evaluation: formData.evaluation,
-        })
+        .insert(payload)
         .select()
         .single()
-      if (sessionError) throw sessionError
+      if (error) throw error
+      const created = data as Session
 
-      const newSession = session as Session
-
-      if (formData.studentReports.length > 0) {
-        const { error: reportsError } = await supabase
+      if (form.studentReports.length > 0) {
+        const { error: rErr } = await supabase
           .from('session_student_reports')
-          .insert(formData.studentReports.map((r) => ({ ...r, session_id: newSession.id })))
-        if (reportsError) throw reportsError
+          .insert(form.studentReports.map((r) => ({ ...r, session_id: created.id })))
+        if (rErr) throw rErr
       }
 
-      if (formData.photoPaths.length > 0) {
-        const { error: docsError } = await supabase
+      if (form.photoUrls.length > 0) {
+        const { error: dErr } = await supabase
           .from('session_docs')
-          .insert(formData.photoPaths.map((p) => ({ session_id: newSession.id, storage_path: p })))
-        if (docsError) throw docsError
+          .insert(form.photoUrls.map((url, i) => ({
+            session_id: created.id, photo_url: url, sort_order: i,
+          })))
+        if (dErr) throw dErr
       }
 
-      return newSession
+      return created
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['sessions'] })
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })
 }

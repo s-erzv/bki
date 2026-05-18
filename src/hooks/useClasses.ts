@@ -8,68 +8,53 @@ type ClassInsert = Database['public']['Tables']['classes']['Insert']
 export interface ClassWithTeams extends Class {
   class_teams: Array<{
     team_id: string
-    teams: { id: string; team_code: string; nama_tim: string | null } | null
+    teams: { id: string; team_code: string; research_title: string | null } | null
   }>
 }
 
+/* ─── Coach ─────────────────────────────────────────────── */
+
 export function useCoachClasses() {
-  const userId = useAuthStore((s) => s.user?.id)
+  const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
 
   return useQuery<ClassWithTeams[]>({
-    queryKey: ['classes', 'coach', userId],
+    queryKey: ['classes', 'coach', coachId],
     queryFn: async () => {
-      if (!userId) return []
-
-      const { data: teams } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('coach_id', userId)
-        .is('deleted_at', null)
-
-      const teamIds = ((teams ?? []) as Array<{ id: string }>).map((t) => t.id)
-      if (teamIds.length === 0) return []
-
-      const { data: classTeams } = await supabase
-        .from('class_teams')
-        .select('class_id')
-        .in('team_id', teamIds)
-
-      const classIds = [...new Set(((classTeams ?? []) as Array<{ class_id: string }>).map((ct) => ct.class_id))]
-      if (classIds.length === 0) return []
-
+      if (!coachId) return []
       const { data, error } = await supabase
         .from('classes')
-        .select('*, class_teams(team_id, teams(id, team_code, nama_tim))')
-        .in('id', classIds)
-        .is('deleted_at', null)
-        .order('date', { ascending: false })
+        .select(`
+          *,
+          class_teams(team_id, teams(id, team_code, research_title))
+        `)
+        .eq('coach_id', coachId)
+        .order('scheduled_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as ClassWithTeams[]
+      return (data ?? []) as unknown as ClassWithTeams[]
     },
-    enabled: !!userId,
+    enabled: !!coachId,
   })
 }
+
+/* ─── Student ───────────────────────────────────────────── */
 
 export function useStudentClasses(teamId: string | null | undefined) {
   return useQuery<Class[]>({
     queryKey: ['classes', 'student', teamId],
     queryFn: async () => {
       if (!teamId) return []
-
-      const { data: classTeams } = await supabase
+      const { data: ct, error: ctErr } = await supabase
         .from('class_teams')
         .select('class_id')
         .eq('team_id', teamId)
-
-      const classIds = ((classTeams ?? []) as Array<{ class_id: string }>).map((ct) => ct.class_id)
-      if (classIds.length === 0) return []
-
+      if (ctErr) throw ctErr
+      const ids = (ct as Array<{ class_id: string }> | null ?? []).map((r) => r.class_id)
+      if (ids.length === 0) return []
       const { data, error } = await supabase
         .from('classes')
         .select('*')
-        .in('id', classIds)
-        .is('deleted_at', null)
-        .order('date', { ascending: false })
+        .in('id', ids)
+        .order('scheduled_at', { ascending: false })
       if (error) throw error
       return (data ?? []) as Class[]
     },
@@ -77,36 +62,36 @@ export function useStudentClasses(teamId: string | null | undefined) {
   })
 }
 
+/* ─── Mutations ─────────────────────────────────────────── */
+
 export function useCreateClass() {
   const qc = useQueryClient()
-  const userId = useAuthStore((s) => s.user?.id)
+  const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
 
   return useMutation({
     mutationFn: async ({
       classData,
       teamIds,
     }: {
-      classData: Omit<ClassInsert, 'created_by'>
+      classData: Omit<ClassInsert, 'coach_id'>
       teamIds: string[]
     }) => {
+      if (!coachId) throw new Error('Akun pembimbing belum lengkap')
       const { data, error } = await supabase
         .from('classes')
-        .insert({ ...classData, created_by: userId })
+        .insert({ ...classData, coach_id: coachId })
         .select()
         .single()
       if (error) throw error
-
       const cls = data as Class
       if (teamIds.length > 0) {
-        const { error: ctError } = await supabase
+        const { error: ctErr } = await supabase
           .from('class_teams')
           .insert(teamIds.map((team_id) => ({ class_id: cls.id, team_id })))
-        if (ctError) throw ctError
+        if (ctErr) throw ctErr
       }
       return cls
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['classes'] })
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['classes'] }),
   })
 }

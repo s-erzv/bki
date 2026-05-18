@@ -3,139 +3,184 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X } from 'lucide-react'
+import {
+  Shield, Microscope, FileText, Presentation, Megaphone, GraduationCap, ArrowRight,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { TagInput } from '@/components/ui/tag-input'
+import { OnboardingShell } from '@/components/shared/OnboardingShell'
 import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthStore, metadataRole } from '@/stores/authStore'
 import { toast } from '@/components/ui/use-toast'
+import { cn } from '@/lib/utils'
 import type { CoachDivision } from '@/types/database'
 
-const DIVISIONS: { value: CoachDivision; label: string }[] = [
-  { value: 'research',     label: 'Research' },
-  { value: 'paper',        label: 'Paper' },
-  { value: 'presentation', label: 'Presentation' },
-  { value: 'marketing',    label: 'Marketing' },
-  { value: 'admin',        label: 'Admin' },
-  { value: 'intern',       label: 'Intern' },
+const DIVISIONS: Array<{ value: CoachDivision; label: string; description: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { value: 'research',     label: 'Research',     description: 'Penelitian & metode ilmiah',  icon: Microscope },
+  { value: 'paper',        label: 'Paper',        description: 'Penulisan makalah',           icon: FileText },
+  { value: 'presentation', label: 'Presentation', description: 'Komunikasi & deck',           icon: Presentation },
+  { value: 'marketing',    label: 'Marketing',    description: 'Promosi & branding',          icon: Megaphone },
+  { value: 'admin',        label: 'Admin',        description: 'Manajemen sistem',            icon: Shield },
+  { value: 'intern',       label: 'Intern',       description: 'Pembimbing magang',           icon: GraduationCap },
 ]
 
 const schema = z.object({
-  nama: z.string().min(2, 'Nama minimal 2 karakter'),
-  nomor_hp: z.string().min(10, 'Nomor HP tidak valid'),
+  full_name:  z.string().min(2, 'Nama minimal 2 karakter'),
+  phone:      z.string().min(10, 'Nomor HP tidak valid'),
   work_email: z.string().email('Email tidak valid').optional().or(z.literal('')),
-  divisi: z.enum(['admin', 'research', 'paper', 'presentation', 'marketing', 'intern']),
+  division:   z.enum(['admin', 'research', 'paper', 'presentation', 'marketing', 'intern']),
 })
 type FormData = z.infer<typeof schema>
 
 export function CoachOnboarding() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, profile, setProfile, setRoleId, setOnboarded } = useAuthStore()
   const [skills, setSkills] = useState<string[]>([])
-  const [skillInput, setSkillInput] = useState('')
 
-  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { divisi: 'research' },
+    defaultValues: {
+      division: 'research',
+      full_name: profile?.full_name ?? (user?.user_metadata?.full_name as string | undefined) ?? '',
+      phone: profile?.phone ?? '',
+    },
   })
-
-  const addSkill = () => {
-    const trimmed = skillInput.trim()
-    if (trimmed && !skills.includes(trimmed)) {
-      setSkills([...skills, trimmed])
-      setSkillInput('')
-    }
-  }
-
-  const removeSkill = (skill: string) => setSkills(skills.filter((s) => s !== skill))
+  const division = watch('division')
 
   const onSubmit = async (data: FormData) => {
     if (!user) return
+    try {
+      const role = profile?.role ?? metadataRole(user) ?? 'coach'
+      const { data: profileRow, error: pErr } = await supabase
+        .from('profiles')
+        .upsert(
+          { auth_user_id: user.id, full_name: data.full_name, phone: data.phone || null, role },
+          { onConflict: 'auth_user_id' },
+        )
+        .select()
+        .single()
+      if (pErr) throw pErr
 
-    const { error } = await supabase.from('coaches').upsert({
-      id: user.id,
-      nama: data.nama,
-      nomor_hp: data.nomor_hp || null,
-      work_email: data.work_email || null,
-      divisi: data.divisi,
-    })
-    if (error) {
-      toast({ title: 'Gagal menyimpan', description: error.message, variant: 'destructive' })
-      return
+      const profileId = (profileRow as { id: string }).id
+      const { data: coachRow, error: cErr } = await supabase
+        .from('coaches')
+        .upsert(
+          { profile_id: profileId, division: data.division, work_email: data.work_email || null },
+          { onConflict: 'profile_id' },
+        )
+        .select()
+        .single()
+      if (cErr) throw cErr
+      const coachId = (coachRow as { id: string }).id
+
+      if (skills.length > 0) {
+        await supabase.from('coach_skills').insert(skills.map((skill) => ({ coach_id: coachId, skill })))
+      }
+
+      setProfile(profileRow as never)
+      setRoleId(coachId)
+      setOnboarded(true)
+      toast({ title: 'Selamat datang!', description: 'Profil pembimbing tersimpan.' })
+      navigate('/coach', { replace: true })
+    } catch (err) {
+      toast({ title: 'Gagal menyimpan', description: errMsg(err), variant: 'destructive' })
     }
-
-    if (skills.length > 0) {
-      await supabase.from('coach_skills').delete().eq('coach_id', user.id)
-      await supabase.from('coach_skills').insert(skills.map((skill) => ({ coach_id: user.id, skill })))
-    }
-
-    await supabase.from('profiles').update({ display_name: data.nama }).eq('id', user.id)
-    navigate('/coach')
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-50 p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Lengkapi Profil Pembimbing</CardTitle>
-          <p className="text-sm text-text-secondary">Data profil kamu sebagai pembimbing BKI</p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Nama Lengkap</Label>
-              <Input placeholder="Nama lengkap" {...register('nama')} />
-              {errors.nama && <p className="text-xs text-danger">{errors.nama.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nomor HP / WhatsApp</Label>
-              <Input placeholder="08xxxxxxxxxx" {...register('nomor_hp')} />
-              {errors.nomor_hp && <p className="text-xs text-danger">{errors.nomor_hp.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email Kerja (opsional)</Label>
-              <Input type="email" placeholder="email@bki.co" {...register('work_email')} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Divisi</Label>
-              <Select defaultValue="research" onValueChange={(v) => setValue('divisi', v as CoachDivision)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DIVISIONS.map((d) => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Keahlian</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Tambah keahlian..."
-                  value={skillInput}
-                  onChange={(e) => setSkillInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill() } }}
-                />
-                <Button type="button" variant="outline" onClick={addSkill}>Tambah</Button>
-              </div>
-              {skills.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {skills.map((skill) => (
-                    <span key={skill} className="flex items-center gap-1 bg-primary-50 text-primary-700 text-sm px-3 py-1 rounded-full">
-                      {skill}
-                      <button type="button" onClick={() => removeSkill(skill)}><X className="h-3 w-3" /></button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Menyimpan...' : 'Simpan & Lanjutkan'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <OnboardingShell
+      role="coach"
+      title="Lengkapi profil pembimbing"
+      description="Data ini muncul di dashboard murid dan wali yang kamu bimbing."
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* ── Identitas ─────────────────────────────── */}
+        <Section title="Identitas">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Field label="Nama lengkap" error={errors.full_name?.message}>
+              <Input placeholder="Nama yang akan ditampilkan" {...register('full_name')} />
+            </Field>
+            <Field label="Nomor HP / WhatsApp" error={errors.phone?.message}>
+              <Input placeholder="08xxxxxxxxxx" {...register('phone')} />
+            </Field>
+          </div>
+          <Field label="Email kerja (opsional)" error={errors.work_email?.message}>
+            <Input type="email" placeholder="email@bki.org" {...register('work_email')} />
+          </Field>
+        </Section>
+
+        {/* ── Divisi ────────────────────────────────── */}
+        <Section title="Pilih divisimu" description="Menentukan jenis bimbingan yang akan kamu pegang.">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {DIVISIONS.map((d) => {
+              const selected = division === d.value
+              const Icon = d.icon
+              return (
+                <button
+                  type="button"
+                  key={d.value}
+                  onClick={() => setValue('division', d.value)}
+                  className={cn(
+                    'group text-left rounded-2xl border p-4 transition-all',
+                    selected
+                      ? 'border-primary-500 bg-primary-50/40 shadow-soft ring-2 ring-primary-100'
+                      : 'border-surface-200 bg-white hover:border-primary-300',
+                  )}
+                >
+                  <div className={cn(
+                    'inline-flex h-10 w-10 items-center justify-center rounded-xl mb-3',
+                    selected ? 'bg-primary-600 text-white' : 'bg-surface-100 text-text-secondary group-hover:bg-primary-100 group-hover:text-primary-700',
+                  )}>
+                    <Icon className="h-4 w-4" strokeWidth={2} />
+                  </div>
+                  <p className="font-bold text-text-primary leading-tight">{d.label}</p>
+                  <p className="text-xs text-text-tertiary leading-snug mt-0.5">{d.description}</p>
+                </button>
+              )
+            })}
+          </div>
+        </Section>
+
+        {/* ── Skills ────────────────────────────────── */}
+        <Section title="Keahlianmu" description="Ketik dan tekan Enter — minimal 3 supaya tim BKI bisa matching project yang pas.">
+          <TagInput value={skills} onChange={setSkills} placeholder="Misal: kimia organik, machine learning, public speaking…" />
+        </Section>
+
+        <div className="flex items-center justify-end pt-2">
+          <Button type="submit" disabled={isSubmitting} className="h-11 px-6">
+            {isSubmitting ? 'Menyimpan…' : (<>Simpan & Masuk Dashboard <ArrowRight className="h-4 w-4 ml-1.5" /></>)}
+          </Button>
+        </div>
+      </form>
+    </OnboardingShell>
+  )
+}
+
+function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary-600">{title}</p>
+        {description && <p className="text-xs text-text-tertiary mt-1">{description}</p>}
+      </div>
+      <div className="space-y-3">{children}</div>
     </div>
   )
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      {children}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
+
+function errMsg(err: unknown): string {
+  if (err instanceof Error) return err.message
+  return typeof err === 'string' ? err : 'Terjadi kesalahan'
 }

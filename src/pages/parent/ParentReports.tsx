@@ -8,12 +8,10 @@ import { useParentStudents } from '@/hooks/useTeam'
 import { useStudentSessions } from '@/hooks/useSessions'
 import { formatDate } from '@/lib/utils'
 
-type StudentWithTeam = { id: string; team_members?: Array<{ teams: { id: string } | null }> }
-
 export function ParentReports() {
   const { data: students = [], isLoading: studentsLoading } = useParentStudents()
-  const child = (students[0] as StudentWithTeam | undefined)
-  const teamId = child?.team_members?.[0]?.teams?.id
+  const child = students[0]
+  const teamId = child?.team_members?.[0]?.teams?.id ?? null
   const { data: sessions = [], isLoading: sessionsLoading } = useStudentSessions(teamId)
 
   const isLoading = studentsLoading || sessionsLoading
@@ -39,7 +37,7 @@ export function ParentReports() {
                       <Badge variant={s.media === 'online' ? 'online' : 'offline'}>{s.media}</Badge>
                     </div>
                     <p className="font-medium text-text-primary">{s.topic ?? 'Sesi Bimbingan'}</p>
-                    <p className="text-sm text-text-secondary">{formatDate(s.date)}</p>
+                    <p className="text-sm text-text-secondary">{formatDate(s.session_date)}</p>
                   </div>
                   {s.drive_report_url ? (
                     <Button size="sm" variant="outline" asChild>

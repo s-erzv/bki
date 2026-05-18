@@ -1,79 +1,95 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
+import type { Coach, CoachSkill, Database, Parent, Profile, Student } from '@/types/database'
+
+type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
+
+/* ─── Profile ───────────────────────────────────────────── */
 
 export function useProfile() {
-  const userId = useAuthStore((s) => s.user?.id)
-
-  return useQuery({
-    queryKey: ['profile', userId],
+  const profileId = useAuthStore((s) => s.profile?.id)
+  return useQuery<Profile | null>({
+    queryKey: ['profile', profileId],
     queryFn: async () => {
-      if (!userId) return null
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      if (!profileId) return null
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', profileId).maybeSingle()
       if (error) throw error
-      return data
+      return (data as Profile | null) ?? null
     },
-    enabled: !!userId,
+    enabled: !!profileId,
   })
 }
 
-export function useCoachProfile() {
-  const userId = useAuthStore((s) => s.user?.id)
+export function useUpdateProfile() {
+  const qc = useQueryClient()
+  const profileId = useAuthStore((s) => s.profile?.id)
+  return useMutation({
+    mutationFn: async (updates: ProfileUpdate) => {
+      if (!profileId) throw new Error('Profil belum lengkap')
+      const { error } = await supabase.from('profiles').update(updates).eq('id', profileId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile'] }),
+  })
+}
 
-  return useQuery({
-    queryKey: ['coach', userId],
+/* ─── Role-specific ─────────────────────────────────────── */
+
+export interface CoachWithSkills extends Coach {
+  coach_skills: CoachSkill[]
+}
+
+export function useCoachProfile() {
+  const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
+  return useQuery<CoachWithSkills | null>({
+    queryKey: ['coach', coachId],
     queryFn: async () => {
-      if (!userId) return null
+      if (!coachId) return null
       const { data, error } = await supabase
         .from('coaches')
         .select('*, coach_skills(*)')
-        .eq('id', userId)
-        .single()
+        .eq('id', coachId)
+        .maybeSingle()
       if (error) throw error
-      return data
+      return (data as unknown as CoachWithSkills | null) ?? null
     },
-    enabled: !!userId,
+    enabled: !!coachId,
   })
 }
 
 export function useStudentProfile() {
-  const userId = useAuthStore((s) => s.user?.id)
-
-  return useQuery({
-    queryKey: ['student', userId],
+  const studentId = useAuthStore((s) => (s.profile?.role === 'student' ? s.roleId : null))
+  return useQuery<Student | null>({
+    queryKey: ['student', studentId],
     queryFn: async () => {
-      if (!userId) return null
+      if (!studentId) return null
       const { data, error } = await supabase
         .from('students')
         .select('*')
-        .eq('id', userId)
-        .single()
+        .eq('id', studentId)
+        .maybeSingle()
       if (error) throw error
-      return data
+      return (data as Student | null) ?? null
     },
-    enabled: !!userId,
+    enabled: !!studentId,
   })
 }
 
 export function useParentProfile() {
-  const userId = useAuthStore((s) => s.user?.id)
-
-  return useQuery({
-    queryKey: ['parent', userId],
+  const parentId = useAuthStore((s) => (s.profile?.role === 'parent' ? s.roleId : null))
+  return useQuery<Parent | null>({
+    queryKey: ['parent', parentId],
     queryFn: async () => {
-      if (!userId) return null
+      if (!parentId) return null
       const { data, error } = await supabase
         .from('parents')
         .select('*')
-        .eq('id', userId)
-        .single()
+        .eq('id', parentId)
+        .maybeSingle()
       if (error) throw error
-      return data
+      return (data as Parent | null) ?? null
     },
-    enabled: !!userId,
+    enabled: !!parentId,
   })
 }

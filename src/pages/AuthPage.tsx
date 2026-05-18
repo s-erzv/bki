@@ -1,19 +1,23 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { GraduationCap, Users, Heart, Shield, Globe, Mail, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { GraduationCap, Globe, Mail, ArrowLeft, Sparkles, ShieldCheck, Heart, Users } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
-import { useSignInWithGoogle, useSignUpWithGoogle, useSignInWithEmail, useSignUpWithEmail, useRoleRedirectPath } from '@/hooks/useAuth'
-import { useAuthStore } from '@/stores/authStore'
+import {
+  useSignInWithGoogle, useSignUpWithGoogle,
+  useSignInWithEmail, useSignUpWithEmail,
+  dashboardPath, onboardingPath,
+} from '@/hooks/useAuth'
+import { useAuthStore, metadataRole } from '@/stores/authStore'
 import { toast } from '@/components/ui/use-toast'
+import { isSupabaseConfigured } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/database'
 
-/* ── Schemas ─────────────────────────────────────────────── */
 const loginSchema = z.object({
   email: z.string().email('Email tidak valid'),
   password: z.string().min(6, 'Password minimal 6 karakter'),
@@ -24,7 +28,7 @@ const registerSchema = z.object({
   email: z.string().email('Email tidak valid'),
   password: z.string().min(6, 'Password minimal 6 karakter'),
   confirmPassword: z.string().min(6, 'Konfirmasi password minimal 6 karakter'),
-}).refine(d => d.password === d.confirmPassword, {
+}).refine((d) => d.password === d.confirmPassword, {
   message: 'Password tidak cocok',
   path: ['confirmPassword'],
 })
@@ -32,311 +36,272 @@ const registerSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 type RegisterForm = z.infer<typeof registerSchema>
 
-/* ── Role Cards ──────────────────────────────────────────── */
-interface RoleCard {
-  role: UserRole
-  label: string
-  description: string
-  icon: React.ComponentType<{ className?: string }>
-  color: string
-  bg: string
+const ROLE_META: Record<UserRole, { label: string; icon: React.ComponentType<{ className?: string }>; accent: string; tagline: string }> = {
+  coach:   { label: 'Pembimbing', icon: GraduationCap, accent: 'from-primary-500 to-primary-700',     tagline: 'Bimbing, jadwalkan, laporkan.' },
+  student: { label: 'Murid',      icon: Users,         accent: 'from-accent-teal to-primary-600',      tagline: 'Riset & tugas dalam satu pintu.' },
+  parent:  { label: 'Orang Tua',  icon: Heart,         accent: 'from-accent-purple to-primary-700',    tagline: 'Pantau perkembangan anakmu.' },
+  admin:   { label: 'Admin',      icon: ShieldCheck,   accent: 'from-text-secondary to-primary-950',   tagline: 'Kelola seluruh sistem BKI.' },
 }
 
-const ROLE_CARDS: RoleCard[] = [
-  { role: 'coach',   label: 'Pembimbing', description: 'Kelola tim, kelas, dan tugas murid',     icon: GraduationCap, color: 'text-primary-600', bg: 'bg-primary-50 border-primary-200' },
-  { role: 'student', label: 'Murid',      description: 'Pantau progress dan tugas penelitianmu',  icon: Users,         color: 'text-indigo-600',  bg: 'bg-indigo-50 border-indigo-200' },
-  { role: 'parent',  label: 'Orang Tua',  description: 'Monitor perkembangan anakmu',             icon: Heart,         color: 'text-violet-600',  bg: 'bg-violet-50 border-violet-200' },
-  { role: 'admin',   label: 'Admin',      description: 'Kelola sistem dan pengguna BKI',          icon: Shield,        color: 'text-slate-600',   bg: 'bg-slate-50 border-slate-200' },
-]
-
-/* ── Props ───────────────────────────────────────────────── */
-export interface AuthPageProps {
-  mode: 'login' | 'register'
+function readRole(sp: URLSearchParams): UserRole {
+  const r = sp.get('role')
+  return r === 'coach' || r === 'student' || r === 'parent' || r === 'admin' ? r : 'student'
 }
 
-/* ── Component ───────────────────────────────────────────── */
+export interface AuthPageProps { mode: 'login' | 'register' }
+
 export function AuthPage({ mode }: AuthPageProps) {
   const isRegister = mode === 'register'
+  const [searchParams] = useSearchParams()
+  const role = readRole(searchParams)
+  const meta = ROLE_META[role]
 
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
-  const [authMethod, setAuthMethod] = useState<'google' | 'email' | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [loading, setLoading] = useState(false)
-
+  const [method, setMethod] = useState<null | 'email'>(null)
+  const [busy, setBusy] = useState(false)
   const navigate = useNavigate()
-  const { profile } = useAuthStore()
+
+  const { session, profile, onboarded, sessionRestored, user } = useAuthStore()
 
   const signInGoogle = useSignInWithGoogle()
   const signUpGoogle = useSignUpWithGoogle()
   const signInEmail  = useSignInWithEmail()
   const signUpEmail  = useSignUpWithEmail()
 
-  const redirectPath = useRoleRedirectPath(profile?.role)
+  useEffect(() => {
+    if (!sessionRestored || !session) return
+    const r = profile?.role ?? metadataRole(user)
+    if (!r) return
+    if (!onboarded && onboardingPath(r)) navigate(onboardingPath(r)!, { replace: true })
+    else navigate(dashboardPath(r), { replace: true })
+  }, [session, profile, onboarded, sessionRestored, user, navigate])
 
-  // Login form
-  const loginForm = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-  })
+  const loginForm = useForm<LoginForm>({ resolver: zodResolver(loginSchema) })
+  const registerForm = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) })
 
-  // Register form
-  const registerForm = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
-  })
-
-  // Redirect if already logged in
-  if (profile) {
-    navigate(redirectPath, { replace: true })
-    return null
-  }
-
-  /* ── Handlers ────────────────────────────────────────── */
   const handleGoogle = async () => {
-    setLoading(true)
+    if (!isSupabaseConfigured) {
+      toast({ title: 'Supabase belum dikonfigurasi', description: 'Isi VITE_SUPABASE_URL di .env', variant: 'destructive' })
+      return
+    }
+    setBusy(true)
     try {
-      if (isRegister) {
-        await signUpGoogle(selectedRole!)
-      } else {
-        await signInGoogle()
-      }
-    } catch {
-      toast({
-        title: isRegister ? 'Registrasi Gagal' : 'Login Gagal',
-        description: 'Coba lagi beberapa saat.',
-        variant: 'destructive',
-      })
-      setLoading(false)
+      if (isRegister) await signUpGoogle(role)
+      else await signInGoogle()
+    } catch (err) {
+      toast({ title: isRegister ? 'Registrasi Gagal' : 'Login Gagal', description: errMsg(err), variant: 'destructive' })
+      setBusy(false)
     }
   }
 
   const handleEmailLogin = async (data: LoginForm) => {
-    setLoading(true)
-    try {
-      await signInEmail(data.email, data.password)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Email atau password salah.'
-      toast({ title: 'Login Gagal', description: msg, variant: 'destructive' })
-      setLoading(false)
+    setBusy(true)
+    try { await signInEmail(data.email, data.password) }
+    catch (err) {
+      toast({ title: 'Login Gagal', description: errMsg(err), variant: 'destructive' })
+      setBusy(false)
     }
   }
 
   const handleEmailRegister = async (data: RegisterForm) => {
-    setLoading(true)
+    setBusy(true)
     try {
-      await signUpEmail(data.email, data.password, selectedRole!, data.fullName)
-      toast({
-        title: 'Registrasi Berhasil!',
-        description: 'Silahkan cek email untuk verifikasi akun.',
-      })
-      setLoading(false)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal registrasi.'
-      toast({ title: 'Registrasi Gagal', description: msg, variant: 'destructive' })
-      setLoading(false)
+      await signUpEmail(data.email, data.password, role, data.fullName)
+      toast({ title: 'Registrasi berhasil!', description: 'Silakan cek email untuk verifikasi.' })
+    } catch (err) {
+      toast({ title: 'Registrasi Gagal', description: errMsg(err), variant: 'destructive' })
+      setBusy(false)
     }
   }
 
-  /* ── Labels ──────────────────────────────────────────── */
-  const title = isRegister ? 'Daftar Akun Baru' : 'Masuk ke BKI'
-  const subtitle = isRegister
-    ? 'Pilih peran dan buat akun untuk mulai menggunakan BKI'
-    : 'Bimbingan Karya Ilmiah — Platform Riset Akademis Terpadu'
-  const roleLabel = ROLE_CARDS.find(r => r.role === selectedRole)?.label
-  const actionLabel = isRegister ? 'Daftar' : 'Masuk'
+  const Icon = meta.icon
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-indigo-50 flex flex-col items-center justify-center p-6">
-      {/* Background mesh */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-primary-100 opacity-50 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-indigo-100 opacity-50 blur-3xl" />
-      </div>
+    <div className="min-h-screen grid lg:grid-cols-2">
+      {/* ── Left: brand panel (hidden on small) ─────────── */}
+      <aside className="relative hidden lg:flex flex-col justify-between p-12 bg-primary-950 text-white overflow-hidden">
+        {/* Decorative gradient mesh */}
+        <div className={cn('absolute -top-32 -right-32 h-96 w-96 rounded-full blur-3xl opacity-30 bg-gradient-to-br', meta.accent)} />
+        <div className="absolute -bottom-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-primary-400/10 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+            backgroundSize: '32px 32px',
+          }}
+        />
 
-      <div className="relative z-10 w-full max-w-4xl">
-        {/* Logo & tagline */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-600 shadow-lg mb-4">
-            <GraduationCap className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-text-primary mb-2">{title}</h1>
-          <p className="text-text-secondary">{subtitle}</p>
+        <div className="relative">
+          <Link to="/" className="inline-flex items-center gap-2.5 group">
+            <div className="h-10 w-10 rounded-xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center group-hover:bg-white/15 transition-colors">
+              <GraduationCap className="h-5 w-5" strokeWidth={2.5} />
+            </div>
+            <div className="leading-tight">
+              <p className="font-extrabold tracking-tight">BKI</p>
+              <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-white/60">Bimbingan Karya Ilmiah</p>
+            </div>
+          </Link>
         </div>
 
-        {/* Role cards — always visible for register, hidden for login */}
-        {(isRegister || !isRegister) && (
-          <div className={cn('grid grid-cols-2 md:grid-cols-4 gap-4 mb-8', !isRegister && 'hidden')}>
-            {ROLE_CARDS.map((card) => (
-              <button
-                key={card.role}
-                onClick={() => { setSelectedRole(card.role); setAuthMethod(null) }}
-                className={cn(
-                  'flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all duration-200 text-center',
-                  selectedRole === card.role
-                    ? `${card.bg} border-current ${card.color} shadow-md scale-105`
-                    : 'bg-white border-surface-200 hover:border-surface-300 hover:shadow-sm'
-                )}
-              >
-                <card.icon className={cn('h-8 w-8', selectedRole === card.role ? card.color : 'text-text-tertiary')} />
-                <div>
-                  <p className={cn('font-semibold text-sm', selectedRole === card.role ? card.color : 'text-text-primary')}>
-                    {card.label}
-                  </p>
-                  <p className="text-xs text-text-tertiary mt-0.5">{card.description}</p>
-                </div>
-              </button>
+        <div className="relative">
+          <div className={cn('inline-flex items-center gap-2 rounded-full px-3 py-1 mb-6 border bg-white/[0.06] backdrop-blur border-white/[0.15]')}>
+            <span className={cn('h-1.5 w-1.5 rounded-full bg-gradient-to-br', meta.accent)} />
+            <span className="text-[10px] uppercase tracking-[0.14em] font-bold text-white/80">{meta.label}</span>
+          </div>
+          <h2 className="text-5xl font-extrabold tracking-tight leading-[1.05] mb-4">
+            {isRegister ? (
+              <>Mulai bimbingan,<br/><span className="text-primary-200">satu peran.</span></>
+            ) : (
+              <>{meta.tagline}</>
+            )}
+          </h2>
+          <p className="text-white/70 text-lg leading-relaxed max-w-md">
+            Semua sesi, tugas, dan laporan tersimpan rapi — terintegrasi Google Calendar, Drive, dan WhatsApp.
+          </p>
+
+          <div className="mt-10 grid grid-cols-3 gap-3 max-w-md">
+            {[
+              { v: '500+', l: 'Murid' },
+              { v: '40+',  l: 'Tim' },
+              { v: '15+',  l: 'Lomba menang' },
+            ].map((s) => (
+              <div key={s.l} className="rounded-xl border border-white/10 bg-white/[0.04] backdrop-blur p-3">
+                <p className="text-2xl font-extrabold tracking-tight tabular-nums">{s.v}</p>
+                <p className="text-[10px] uppercase tracking-wider text-white/60 font-semibold">{s.l}</p>
+              </div>
             ))}
           </div>
-        )}
+        </div>
 
-        {/* Auth panel — show when role selected (register) or always (login) */}
-        {(isRegister ? selectedRole : true) && (
-          <div className="bg-white rounded-xl border border-surface-200 shadow-sm p-6 max-w-sm mx-auto">
-            {isRegister && (
-              <p className="text-sm font-medium text-text-secondary text-center mb-4">
-                Daftar sebagai <span className="text-text-primary font-semibold">{roleLabel}</span>
-              </p>
-            )}
+        <p className="relative text-xs text-white/40">© {new Date().getFullYear()} BKI</p>
+      </aside>
 
-            {/* Method selection */}
-            {authMethod === null && (
-              <div className="space-y-3">
-                <Button className="w-full" onClick={() => isRegister ? handleGoogle() : setAuthMethod('google')} disabled={loading}>
+      {/* ── Right: form ─────────────────────────────────── */}
+      <main className="relative flex items-center justify-center p-6 sm:p-10 bg-surface-50">
+        <div className="w-full max-w-md">
+          {/* Mobile-only brand header */}
+          <div className="lg:hidden text-center mb-8">
+            <Link to="/" className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-primary-950 shadow-lift mb-3">
+              <GraduationCap className="h-6 w-6 text-white" strokeWidth={2.5} />
+            </Link>
+            <p className="text-xs uppercase tracking-[0.18em] font-bold text-primary-700">BKI</p>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-surface-200 shadow-lift p-8 sm:p-10">
+            {/* Role chip */}
+            <div className="flex items-center gap-3 mb-7">
+              <div className={cn('h-11 w-11 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white shadow-soft', meta.accent)}>
+                <Icon className="h-5 w-5" strokeWidth={2} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-[0.14em] font-bold text-text-tertiary">
+                  {isRegister ? 'Daftar sebagai' : 'Masuk sebagai'}
+                </p>
+                <p className="font-bold text-text-primary leading-tight">{meta.label}</p>
+              </div>
+            </div>
+
+            <h1 className="text-2xl font-extrabold tracking-tight text-text-primary mb-1">
+              {isRegister ? 'Buat akun baru' : 'Selamat datang kembali'}
+            </h1>
+            <p className="text-sm text-text-secondary mb-7">
+              {isRegister ? 'Daftar untuk mulai bimbingan' : 'Masuk untuk lanjut ke dashboard'}
+            </p>
+
+            {method === null && (
+              <div className="space-y-2.5">
+                <Button className="w-full h-11" onClick={handleGoogle} disabled={busy}>
                   <Globe className="h-4 w-4" />
-                  {isRegister ? (loading ? 'Mengarahkan...' : 'Daftar dengan Google') : 'Masuk dengan Google'}
+                  {busy ? 'Mengarahkan...' : isRegister ? 'Daftar dengan Google' : 'Masuk dengan Google'}
                 </Button>
-                <Button variant="outline" className="w-full" onClick={() => setAuthMethod('email')}>
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-surface-200" /></div>
+                  <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] uppercase tracking-wider text-text-tertiary font-semibold">atau</span></div>
+                </div>
+                <Button variant="outline" className="w-full h-11" onClick={() => setMethod('email')} disabled={busy}>
                   <Mail className="h-4 w-4" />
                   {isRegister ? 'Daftar dengan Email' : 'Masuk dengan Email'}
                 </Button>
               </div>
             )}
 
-            {/* Google confirm (login only) */}
-            {!isRegister && authMethod === 'google' && (
-              <div className="space-y-3">
-                <Button className="w-full" onClick={handleGoogle} disabled={loading}>
-                  <Globe className="h-4 w-4" />
-                  {loading ? 'Mengarahkan...' : 'Lanjut dengan Google'}
-                </Button>
-                <button onClick={() => setAuthMethod(null)} className="text-xs text-text-tertiary hover:text-text-secondary w-full text-center">← Kembali</button>
-              </div>
-            )}
-
-            {/* Email form */}
-            {authMethod === 'email' && (
+            {method === 'email' && (
               isRegister ? (
-                /* ── Register Form ─── */
                 <form onSubmit={registerForm.handleSubmit(handleEmailRegister)} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="fullName">Nama Lengkap</Label>
-                    <Input id="fullName" type="text" placeholder="Nama lengkap" {...registerForm.register('fullName')} />
-                    {registerForm.formState.errors.fullName && <p className="text-xs text-danger">{registerForm.formState.errors.fullName.message}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-email">Email</Label>
-                    <Input id="reg-email" type="email" placeholder="nama@email.com" {...registerForm.register('email')} />
-                    {registerForm.formState.errors.email && <p className="text-xs text-danger">{registerForm.formState.errors.email.message}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="reg-password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="reg-password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        {...registerForm.register('password')}
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {registerForm.formState.errors.password && <p className="text-xs text-danger">{registerForm.formState.errors.password.message}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="confirmPassword">Konfirmasi Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="confirmPassword"
-                        type={showConfirm ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        {...registerForm.register('confirmPassword')}
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirm(!showConfirm)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"
-                      >
-                        {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {registerForm.formState.errors.confirmPassword && <p className="text-xs text-danger">{registerForm.formState.errors.confirmPassword.message}</p>}
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    <UserPlus className="h-4 w-4" />
-                    {loading ? 'Memproses...' : 'Daftar'}
+                  <Field label="Nama Lengkap" error={registerForm.formState.errors.fullName?.message}>
+                    <Input {...registerForm.register('fullName')} placeholder="Nama lengkap kamu" />
+                  </Field>
+                  <Field label="Email" error={registerForm.formState.errors.email?.message}>
+                    <Input type="email" autoComplete="email" placeholder="kamu@example.com" {...registerForm.register('email')} />
+                  </Field>
+                  <Field label="Password" error={registerForm.formState.errors.password?.message}>
+                    <Input type="password" autoComplete="new-password" placeholder="Min. 6 karakter" {...registerForm.register('password')} />
+                  </Field>
+                  <Field label="Konfirmasi Password" error={registerForm.formState.errors.confirmPassword?.message}>
+                    <Input type="password" autoComplete="new-password" placeholder="Ulang password" {...registerForm.register('confirmPassword')} />
+                  </Field>
+                  <Button type="submit" className="w-full h-11" disabled={busy}>
+                    {busy ? 'Memproses...' : 'Buat Akun'}
                   </Button>
-                  <button type="button" onClick={() => setAuthMethod(null)} className="text-xs text-text-tertiary hover:text-text-secondary w-full text-center">← Kembali</button>
+                  <button type="button" onClick={() => setMethod(null)} className="w-full text-xs text-text-tertiary hover:text-text-primary transition-colors">
+                    ← Pilih cara lain
+                  </button>
                 </form>
               ) : (
-                /* ── Login Form ─── */
                 <form onSubmit={loginForm.handleSubmit(handleEmailLogin)} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="nama@email.com" {...loginForm.register('email')} />
-                    {loginForm.formState.errors.email && <p className="text-xs text-danger">{loginForm.formState.errors.email.message}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
-                        {...loginForm.register('password')}
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-secondary"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    {loginForm.formState.errors.password && <p className="text-xs text-danger">{loginForm.formState.errors.password.message}</p>}
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    <LogIn className="h-4 w-4" />
-                    {loading ? 'Memproses...' : 'Masuk'}
+                  <Field label="Email" error={loginForm.formState.errors.email?.message}>
+                    <Input type="email" autoComplete="email" placeholder="kamu@example.com" {...loginForm.register('email')} />
+                  </Field>
+                  <Field label="Password" error={loginForm.formState.errors.password?.message}>
+                    <Input type="password" autoComplete="current-password" placeholder="Password kamu" {...loginForm.register('password')} />
+                  </Field>
+                  <Button type="submit" className="w-full h-11" disabled={busy}>
+                    {busy ? 'Memproses...' : 'Masuk'}
                   </Button>
-                  <button type="button" onClick={() => setAuthMethod(null)} className="text-xs text-text-tertiary hover:text-text-secondary w-full text-center">← Kembali</button>
+                  <button type="button" onClick={() => setMethod(null)} className="w-full text-xs text-text-tertiary hover:text-text-primary transition-colors">
+                    ← Pilih cara lain
+                  </button>
                 </form>
               )
             )}
 
-            {/* Toggle link */}
-            <div className="mt-5 pt-4 border-t border-surface-100 text-center">
-              {isRegister ? (
-                <p className="text-sm text-text-secondary">
-                  Sudah punya akun?{' '}
-                  <Link to="/login" className="text-primary-600 font-semibold hover:underline">Masuk</Link>
-                </p>
-              ) : (
-                <p className="text-sm text-text-secondary">
-                  Belum punya akun?{' '}
-                  <Link to="/register" className="text-primary-600 font-semibold hover:underline">Daftar</Link>
-                </p>
-              )}
+            <div className="mt-8 pt-6 border-t border-surface-100 text-center space-y-3">
+              <p className="text-sm text-text-secondary">
+                {isRegister ? 'Sudah punya akun?' : 'Belum punya akun?'}{' '}
+                <Link
+                  to={isRegister ? `/login?role=${role}` : `/register?role=${role}`}
+                  onClick={() => setMethod(null)}
+                  className="text-primary-600 font-bold hover:underline"
+                >
+                  {isRegister ? 'Masuk' : 'Daftar sekarang'}
+                </Link>
+              </p>
+              <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-text-tertiary hover:text-text-primary transition-colors">
+                <ArrowLeft className="h-3 w-3" /> Ganti Peran
+              </Link>
             </div>
           </div>
-        )}
-      </div>
+
+          <p className="mt-6 text-center text-xs text-text-tertiary flex items-center justify-center gap-1.5">
+            <Sparkles className="h-3 w-3" /> Dilindungi oleh enkripsi end-to-end Supabase
+          </p>
+        </div>
+      </main>
     </div>
   )
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  )
+}
+
+function errMsg(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  return 'Terjadi kesalahan'
 }

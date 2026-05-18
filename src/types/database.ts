@@ -1,5 +1,5 @@
-// Replace with: pnpm supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/database.ts
-// Manual types that mirror the schema — must satisfy supabase-js GenericSchema constraints.
+// Mirrors the live Supabase schema. Keep in sync with prod or regenerate via:
+//   pnpm supabase gen types typescript --project-id <id> > src/types/database.ts
 
 export type UserRole = 'coach' | 'student' | 'parent' | 'admin'
 export type CoachDivision = 'admin' | 'research' | 'paper' | 'presentation' | 'marketing' | 'intern'
@@ -9,95 +9,64 @@ export type DriveLinkType = 'team_report' | 'team_docs' | 'student_personal'
 export type WaStatus = 'pending' | 'sent' | 'failed'
 export type OauthScopeSet = 'basic' | 'drive_calendar'
 
+type Iso = string // timestamptz / date as ISO string
+
 export type Database = {
   public: {
     Tables: {
       profiles: {
         Row: {
           id: string
+          auth_user_id: string
+          full_name: string
+          phone: string | null
+          photo_url: string | null
           role: UserRole
-          display_name: string | null
-          avatar_url: string | null
-          created_at: string
-          updated_at: string
+          google_sub: string | null
+          created_at: Iso
+          updated_at: Iso
         }
         Insert: {
-          id: string
+          id?: string
+          auth_user_id: string
+          full_name: string
+          phone?: string | null
+          photo_url?: string | null
           role: UserRole
-          display_name?: string | null
-          avatar_url?: string | null
+          google_sub?: string | null
         }
         Update: {
+          full_name?: string
+          phone?: string | null
+          photo_url?: string | null
           role?: UserRole
-          display_name?: string | null
-          avatar_url?: string | null
+          google_sub?: string | null
         }
-        Relationships: []
-      }
-      oauth_tokens: {
-        Row: {
-          id: string
-          user_id: string
-          scope_level: OauthScopeSet
-          access_token: string
-          expires_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          user_id: string
-          scope_level: OauthScopeSet
-          access_token: string
-          expires_at?: string | null
-        }
-        Update: {
-          scope_level?: OauthScopeSet
-          access_token?: string
-          expires_at?: string | null
-        }
-        Relationships: []
-      }
-      schools: {
-        Row: {
-          npsn: string
-          name: string
-          address: string | null
-          created_at: string
-        }
-        Insert: { npsn: string; name: string; address?: string | null }
-        Update: { name?: string; address?: string | null }
         Relationships: []
       }
       coaches: {
         Row: {
           id: string
-          nama: string
-          nomor_hp: string | null
+          profile_id: string
+          division: CoachDivision
           work_email: string | null
-          foto_url: string | null
-          divisi: CoachDivision
-          created_at: string
-          updated_at: string
+          created_at: Iso
+          updated_at: Iso
         }
         Insert: {
-          id: string
-          nama: string
-          nomor_hp?: string | null
+          id?: string
+          profile_id: string
+          division: CoachDivision
           work_email?: string | null
-          foto_url?: string | null
-          divisi: CoachDivision
         }
         Update: {
-          nama?: string
-          nomor_hp?: string | null
+          division?: CoachDivision
           work_email?: string | null
-          foto_url?: string | null
-          divisi?: CoachDivision
         }
         Relationships: []
       }
       coach_skills: {
-        Row: { id: string; coach_id: string; skill: string; created_at: string }
+        Row: { id: string; coach_id: string; skill: string }
         Insert: { coach_id: string; skill: string }
         Update: { skill?: string }
         Relationships: []
@@ -105,127 +74,127 @@ export type Database = {
       students: {
         Row: {
           id: string
-          nama: string
-          nomor_hp: string | null
-          sekolah_npsn: string | null
-          kelas: string | null
-          jurusan: string | null
-          umur: number | null
-          nisn: string | null
+          profile_id: string
           npsn: string | null
-          email_lomba: string | null
-          foto_url: string | null
-          deleted_at: string | null
-          created_at: string
-          updated_at: string
+          nisn: string | null
+          grade: string | null
+          major: string | null
+          age: number | null
+          interests: string | null
+          info_email: string | null
+          deleted_at: Iso | null
+          created_at: Iso
+          updated_at: Iso
         }
         Insert: {
-          id: string
-          nama: string
-          nomor_hp?: string | null
-          sekolah_npsn?: string | null
-          kelas?: string | null
-          jurusan?: string | null
-          umur?: number | null
-          nisn?: string | null
+          id?: string
+          profile_id: string
           npsn?: string | null
-          email_lomba?: string | null
-          foto_url?: string | null
+          nisn?: string | null
+          grade?: string | null
+          major?: string | null
+          age?: number | null
+          interests?: string | null
+          info_email?: string | null
         }
         Update: {
-          nama?: string
-          nomor_hp?: string | null
-          sekolah_npsn?: string | null
-          kelas?: string | null
-          jurusan?: string | null
-          umur?: number | null
-          nisn?: string | null
           npsn?: string | null
-          email_lomba?: string | null
-          foto_url?: string | null
+          nisn?: string | null
+          grade?: string | null
+          major?: string | null
+          age?: number | null
+          interests?: string | null
+          info_email?: string | null
+          deleted_at?: Iso | null
         }
         Relationships: []
       }
       parents: {
-        Row: {
-          id: string
-          nama: string
-          nomor_hp_pemantau: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: { id: string; nama: string; nomor_hp_pemantau?: string | null }
-        Update: { nama?: string; nomor_hp_pemantau?: string | null }
+        Row: { id: string; profile_id: string; created_at: Iso }
+        Insert: { id?: string; profile_id: string }
+        Update: { /* no editable fields */ }
         Relationships: []
       }
       parent_students: {
-        Row: { id: string; parent_id: string; student_id: string; created_at: string }
-        Insert: { parent_id: string; student_id: string }
-        Update: Record<string, never>
+        Row: {
+          id: string
+          parent_id: string
+          student_id: string
+          monitor_phone: string | null
+        }
+        Insert: {
+          parent_id: string
+          student_id: string
+          monitor_phone?: string | null
+        }
+        Update: {
+          monitor_phone?: string | null
+        }
+        Relationships: []
+      }
+      schools: {
+        Row: { npsn: string; name: string; location: string | null; created_at: Iso }
+        Insert: { npsn: string; name: string; location?: string | null }
+        Update: { name?: string; location?: string | null }
         Relationships: []
       }
       teams: {
         Row: {
           id: string
           team_code: string
-          nama_tim: string | null
-          judul_penelitian: string | null
+          research_title: string | null
           coach_id: string | null
-          deleted_at: string | null
-          created_at: string
-          updated_at: string
+          deleted_at: Iso | null
+          created_at: Iso
+          updated_at: Iso
         }
         Insert: {
-          nama_tim?: string | null
-          judul_penelitian?: string | null
+          team_code?: string // auto-generated by trigger
+          research_title?: string | null
           coach_id?: string | null
         }
         Update: {
-          nama_tim?: string | null
-          judul_penelitian?: string | null
+          research_title?: string | null
           coach_id?: string | null
+          deleted_at?: Iso | null
         }
         Relationships: []
       }
       team_members: {
-        Row: { id: string; team_id: string; student_id: string; created_at: string }
+        Row: { id: string; team_id: string; student_id: string; joined_at: Iso }
         Insert: { team_id: string; student_id: string }
-        Update: Record<string, never>
+        Update: { team_id?: string; student_id?: string }
         Relationships: []
       }
       classes: {
         Row: {
           id: string
-          date: string
-          time: string
-          duration_minutes: number | null
+          coach_id: string | null
+          scheduled_at: Iso
+          duration_mins: number | null
           media: SessionMedia
           location: string | null
           maps_url: string | null
           topic: string | null
           gmeet_link: string | null
           gcal_event_id: string | null
-          created_by: string | null
-          deleted_at: string | null
-          created_at: string
-          updated_at: string
+          created_at: Iso
+          updated_at: Iso
         }
         Insert: {
-          date: string
-          time: string
-          duration_minutes?: number | null
+          coach_id?: string | null
+          scheduled_at: Iso
+          duration_mins?: number | null
           media: SessionMedia
           location?: string | null
           maps_url?: string | null
           topic?: string | null
           gmeet_link?: string | null
           gcal_event_id?: string | null
-          created_by?: string | null
         }
         Update: {
-          date?: string
-          time?: string
-          duration_minutes?: number | null
+          scheduled_at?: Iso
+          duration_mins?: number | null
           media?: SessionMedia
           location?: string | null
           maps_url?: string | null
@@ -236,18 +205,19 @@ export type Database = {
         Relationships: []
       }
       class_teams: {
-        Row: { id: string; class_id: string; team_id: string; created_at: string }
+        Row: { id: string; class_id: string; team_id: string }
         Insert: { class_id: string; team_id: string }
-        Update: Record<string, never>
+        Update: { /* immutable */ }
         Relationships: []
       }
       sessions: {
         Row: {
           id: string
           class_id: string | null
-          team_id: string | null
-          date: string
-          duration_minutes: number | null
+          team_id: string
+          coach_id: string | null
+          session_date: Iso
+          duration_mins: number | null
           media: SessionMedia
           location: string | null
           topic: string | null
@@ -255,27 +225,54 @@ export type Database = {
           homework: string | null
           evaluation: string | null
           drive_report_url: string | null
-          deleted_at: string | null
-          created_at: string
-          updated_at: string
+          deleted_at: Iso | null
+          created_at: Iso
+          updated_at: Iso
         }
         Insert: {
           class_id?: string | null
-          team_id?: string | null
-          date: string
-          duration_minutes?: number | null
+          team_id: string
+          coach_id?: string | null
+          session_date: Iso
+          duration_mins?: number | null
           media: SessionMedia
           location?: string | null
           topic?: string | null
           achievement?: string | null
           homework?: string | null
           evaluation?: string | null
+          drive_report_url?: string | null
         }
         Update: {
-          drive_report_url?: string | null
+          session_date?: Iso
+          duration_mins?: number | null
+          media?: SessionMedia
+          location?: string | null
+          topic?: string | null
           achievement?: string | null
           homework?: string | null
           evaluation?: string | null
+          drive_report_url?: string | null
+          deleted_at?: Iso | null
+        }
+        Relationships: []
+      }
+      session_docs: {
+        Row: {
+          id: string
+          session_id: string
+          photo_url: string
+          sort_order: number
+          created_at: Iso
+        }
+        Insert: {
+          session_id: string
+          photo_url: string
+          sort_order?: number
+        }
+        Update: {
+          photo_url?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -284,90 +281,73 @@ export type Database = {
           id: string
           session_id: string
           student_id: string
-          score_penguasaan: number | null
-          score_presentasi: number | null
-          score_keaktifan: number | null
-          score_kedisiplinan: number | null
-          score_kreativitas: number | null
+          score_discipline: number | null
+          score_activeness: number | null
+          score_communication: number | null
+          score_ethics: number | null
+          score_understanding: number | null
           notes: string | null
-          created_at: string
         }
         Insert: {
           session_id: string
           student_id: string
-          score_penguasaan?: number | null
-          score_presentasi?: number | null
-          score_keaktifan?: number | null
-          score_kedisiplinan?: number | null
-          score_kreativitas?: number | null
+          score_discipline?: number | null
+          score_activeness?: number | null
+          score_communication?: number | null
+          score_ethics?: number | null
+          score_understanding?: number | null
           notes?: string | null
         }
         Update: {
-          score_penguasaan?: number | null
-          score_presentasi?: number | null
-          score_keaktifan?: number | null
-          score_kedisiplinan?: number | null
-          score_kreativitas?: number | null
+          score_discipline?: number | null
+          score_activeness?: number | null
+          score_communication?: number | null
+          score_ethics?: number | null
+          score_understanding?: number | null
           notes?: string | null
         }
-        Relationships: []
-      }
-      session_docs: {
-        Row: {
-          id: string
-          session_id: string
-          storage_path: string
-          created_at: string
-        }
-        Insert: { session_id: string; storage_path: string }
-        Update: Record<string, never>
         Relationships: []
       }
       tasks: {
         Row: {
           id: string
+          created_by_coach_id: string | null
+          team_id: string
+          assigned_student_id: string | null
           title: string
           description: string | null
-          deadline: string | null
-          team_id: string | null
-          student_id: string | null
           submission_url: string | null
+          deadline: Iso | null
           is_completed: boolean
-          created_by: string | null
-          deleted_at: string | null
-          created_at: string
-          updated_at: string
+          completed_at: Iso | null
+          created_at: Iso
+          updated_at: Iso
         }
         Insert: {
+          created_by_coach_id?: string | null
+          team_id: string
+          assigned_student_id?: string | null
           title: string
           description?: string | null
-          deadline?: string | null
-          team_id?: string | null
-          student_id?: string | null
           submission_url?: string | null
+          deadline?: Iso | null
           is_completed?: boolean
-          created_by?: string | null
         }
         Update: {
           title?: string
           description?: string | null
-          deadline?: string | null
           submission_url?: string | null
+          deadline?: Iso | null
           is_completed?: boolean
+          completed_at?: Iso | null
+          assigned_student_id?: string | null
         }
         Relationships: []
       }
       task_refs: {
-        Row: {
-          id: string
-          task_id: string
-          ref_type: TaskRefType
-          name: string
-          url: string
-          created_at: string
-        }
-        Insert: { task_id: string; ref_type: TaskRefType; name: string; url: string }
-        Update: { ref_type?: TaskRefType; name?: string; url?: string }
+        Row: { id: string; task_id: string; ref_type: TaskRefType; url: string; label: string | null }
+        Insert: { task_id: string; ref_type: TaskRefType; url: string; label?: string | null }
+        Update: { url?: string; label?: string | null }
         Relationships: []
       }
       drive_links: {
@@ -375,26 +355,76 @@ export type Database = {
           id: string
           team_id: string
           link_type: DriveLinkType
-          url: string
-          created_at: string
-          updated_at: string
+          folder_url: string
+          folder_name: string | null
+          created_at: Iso
         }
-        Insert: { team_id: string; link_type: DriveLinkType; url: string }
-        Update: { url?: string }
+        Insert: {
+          team_id: string
+          link_type: DriveLinkType
+          folder_url: string
+          folder_name?: string | null
+        }
+        Update: {
+          folder_url?: string
+          folder_name?: string | null
+        }
+        Relationships: []
+      }
+      oauth_tokens: {
+        Row: {
+          id: string
+          profile_id: string
+          provider: string
+          access_token: string | null
+          refresh_token: string | null
+          expires_at: Iso | null
+          scope_level: OauthScopeSet
+          scopes: string[] | null
+          updated_at: Iso
+        }
+        Insert: {
+          profile_id: string
+          provider?: string
+          access_token?: string | null
+          refresh_token?: string | null
+          expires_at?: Iso | null
+          scope_level?: OauthScopeSet
+          scopes?: string[] | null
+        }
+        Update: {
+          access_token?: string | null
+          refresh_token?: string | null
+          expires_at?: Iso | null
+          scope_level?: OauthScopeSet
+          scopes?: string[] | null
+        }
         Relationships: []
       }
       wa_notifications: {
         Row: {
           id: string
-          recipient_hp: string
+          recipient_phone: string
           message: string
           status: WaStatus
-          sent_at: string | null
+          ref_id: string | null
+          ref_type: string | null
+          sent_at: Iso | null
           error_msg: string | null
-          created_at: string
+          created_at: Iso
         }
-        Insert: { recipient_hp: string; message: string; status?: WaStatus }
-        Update: { status?: WaStatus; sent_at?: string | null; error_msg?: string | null }
+        Insert: {
+          recipient_phone: string
+          message: string
+          status?: WaStatus
+          ref_id?: string | null
+          ref_type?: string | null
+        }
+        Update: {
+          status?: WaStatus
+          sent_at?: Iso | null
+          error_msg?: string | null
+        }
         Relationships: []
       }
     }
@@ -403,7 +433,7 @@ export type Database = {
     Enums: {
       user_role: UserRole
       coach_division: CoachDivision
-      session_media: SessionMedia
+      media: SessionMedia
       task_ref_type: TaskRefType
       drive_link_type: DriveLinkType
       wa_status: WaStatus
@@ -413,17 +443,23 @@ export type Database = {
   }
 }
 
-// Convenience row types
+/* Convenience aliases */
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Coach = Database['public']['Tables']['coaches']['Row']
+export type CoachSkill = Database['public']['Tables']['coach_skills']['Row']
 export type Student = Database['public']['Tables']['students']['Row']
 export type Parent = Database['public']['Tables']['parents']['Row']
+export type ParentStudent = Database['public']['Tables']['parent_students']['Row']
 export type Team = Database['public']['Tables']['teams']['Row']
+export type TeamMember = Database['public']['Tables']['team_members']['Row']
 export type Class = Database['public']['Tables']['classes']['Row']
+export type ClassTeam = Database['public']['Tables']['class_teams']['Row']
 export type Session = Database['public']['Tables']['sessions']['Row']
+export type SessionDoc = Database['public']['Tables']['session_docs']['Row']
+export type SessionStudentReport = Database['public']['Tables']['session_student_reports']['Row']
 export type Task = Database['public']['Tables']['tasks']['Row']
 export type TaskRef = Database['public']['Tables']['task_refs']['Row']
 export type DriveLink = Database['public']['Tables']['drive_links']['Row']
-export type WaNotification = Database['public']['Tables']['wa_notifications']['Row']
-export type SessionStudentReport = Database['public']['Tables']['session_student_reports']['Row']
 export type OauthToken = Database['public']['Tables']['oauth_tokens']['Row']
+export type WaNotification = Database['public']['Tables']['wa_notifications']['Row']
+export type School = Database['public']['Tables']['schools']['Row']

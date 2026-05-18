@@ -4,118 +4,176 @@ import { useAuthStore } from '@/stores/authStore'
 import type { Database, Task, TaskRef } from '@/types/database'
 
 type TaskInsert = Database['public']['Tables']['tasks']['Insert']
+type TaskUpdate = Database['public']['Tables']['tasks']['Update']
 type TaskRefInsert = Database['public']['Tables']['task_refs']['Insert']
 
 export interface TaskWithRefs extends Task {
   task_refs: TaskRef[]
-  students: { id: string; nama: string } | null
-  teams: { id: string; team_code: string; nama_tim: string | null } | null
+  teams: { id: string; team_code: string; research_title: string | null } | null
+  students: { id: string; profiles: { full_name: string } | null } | null
 }
 
+/* ─── Queries ───────────────────────────────────────────── */
+
 export function useCoachTasks() {
-  const userId = useAuthStore((s) => s.user?.id)
+  const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
 
   return useQuery<TaskWithRefs[]>({
-    queryKey: ['tasks', 'coach', userId],
+    queryKey: ['tasks', 'coach', coachId],
     queryFn: async () => {
-      if (!userId) return []
-
-      const { data: teams } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('coach_id', userId)
-        .is('deleted_at', null)
-
-      const teamIds = ((teams ?? []) as Array<{ id: string }>).map((t) => t.id)
-      if (teamIds.length === 0) return []
-
+      if (!coachId) return []
       const { data, error } = await supabase
         .from('tasks')
-        .select('*, task_refs(*), students(id, nama), teams(id, team_code, nama_tim)')
-        .in('team_id', teamIds)
-        .is('deleted_at', null)
-        .order('deadline', { ascending: true })
+        .select(`
+          *,
+          task_refs(*),
+          teams(id, team_code, research_title),
+          students:assigned_student_id(id, profiles(full_name))
+        `)
+        .eq('created_by_coach_id', coachId)
+        .order('deadline', { ascending: true, nullsFirst: false })
       if (error) throw error
-      return (data ?? []) as TaskWithRefs[]
+      return (data ?? []) as unknown as TaskWithRefs[]
     },
-    enabled: !!userId,
+    enabled: !!coachId,
   })
 }
 
 export function useStudentTasks(teamId: string | null | undefined, studentId: string | null | undefined) {
-  return useQuery<Task[]>({
+  return useQuery<TaskWithRefs[]>({
     queryKey: ['tasks', 'student', teamId, studentId],
     queryFn: async () => {
       if (!teamId && !studentId) return []
-      let query = supabase
+      let q = supabase
         .from('tasks')
-        .select('*, task_refs(*)')
-        .is('deleted_at', null)
-        .order('deadline', { ascending: true })
+        .select(`
+          *,
+          task_refs(*),
+          teams(id, team_code, research_title),
+          students:assigned_student_id(id, profiles(full_name))
+        `)
+        .order('deadline', { ascending: true, nullsFirst: false })
 
       if (teamId && studentId) {
-        query = query.or(`team_id.eq.${teamId},student_id.eq.${studentId}`)
+        // Team tasks (no specific assignee) OR tasks assigned to this student.
+        q = q.or(`assigned_student_id.is.null,assigned_student_id.eq.${studentId}`).eq('team_id', teamId)
       } else if (teamId) {
-        query = query.eq('team_id', teamId)
+        q = q.eq('team_id', teamId)
       } else if (studentId) {
-        query = query.eq('student_id', studentId)
+        q = q.eq('assigned_student_id', studentId)
       }
-
-      const { data, error } = await query
+      const { data, error } = await q
       if (error) throw error
-      return (data ?? []) as Task[]
+      return (data ?? []) as unknown as TaskWithRefs[]
     },
     enabled: !!(teamId || studentId),
   })
 }
 
+/* ─── Mutations ─────────────────────────────────────────── */
+
 export function useCreateTask() {
   const qc = useQueryClient()
-  const userId = useAuthStore((s) => s.user?.id)
+  const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
 
   return useMutation({
     mutationFn: async ({
-      task,
-      refs,
+      task, refs,
     }: {
-      task: Omit<TaskInsert, 'created_by'>
+      task: Omit<TaskInsert, 'created_by_coach_id'>
       refs: Omit<TaskRefInsert, 'task_id'>[]
     }) => {
+      if (!coachId) throw new Error('Akun pembimbing belum lengkap')
       const { data, error } = await supabase
         .from('tasks')
-        .insert({ ...task, created_by: userId })
+        .insert({ ...task, created_by_coach_id: coachId })
         .select()
         .single()
       if (error) throw error
-
-      const newTask = data as Task
+      const created = data as Task
       if (refs.length > 0) {
-        const { error: refsError } = await supabase
+        const { error: rErr } = await supabase
           .from('task_refs')
-          .insert(refs.map((r) => ({ ...r, task_id: newTask.id })))
-        if (refsError) throw refsError
+          .insert(refs.map((r) => ({ ...r, task_id: created.id })))
+        if (rErr) throw rErr
       }
-      return newTask
+      return created
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }
 
 export function useToggleTask() {
   const qc = useQueryClient()
-
   return useMutation({
     mutationFn: async ({ taskId, isCompleted }: { taskId: string; isCompleted: boolean }) => {
       const { error } = await supabase
         .from('tasks')
-        .update({ is_completed: isCompleted })
+        .update({
+          is_completed: isCompleted,
+          completed_at: isCompleted ? new Date().toISOString() : null,
+        })
         .eq('id', taskId)
       if (error) throw error
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useUpdateTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      taskId, task, refs,
+    }: {
+      taskId: string
+      task: Omit<TaskUpdate, 'id' | 'created_by_coach_id'>
+      refs: Omit<TaskRefInsert, 'task_id'>[]
+    }) => {
+      const { error } = await supabase.from('tasks').update(task).eq('id', taskId)
+      if (error) throw error
+      // Refs: replace-all strategy. Delete existing, then insert the new set.
+      const { error: delErr } = await supabase.from('task_refs').delete().eq('task_id', taskId)
+      if (delErr) throw delErr
+      if (refs.length > 0) {
+        const { error: insErr } = await supabase
+          .from('task_refs')
+          .insert(refs.map((r) => ({ ...r, task_id: taskId })))
+        if (insErr) throw insErr
+      }
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useDeleteTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      // No ON DELETE CASCADE on task_refs.task_id, so we delete refs first.
+      const { error: rErr } = await supabase.from('task_refs').delete().eq('task_id', taskId)
+      if (rErr) throw rErr
+      const { error } = await supabase.from('tasks').delete().eq('id', taskId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  })
+}
+
+export function useSubmitTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ taskId, submissionUrl }: { taskId: string; submissionUrl: string }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          submission_url: submissionUrl,
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', taskId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   })
 }

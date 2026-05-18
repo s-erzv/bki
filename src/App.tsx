@@ -1,8 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthListener, useRoleRedirectPath } from '@/hooks/useAuth'
-import { useAuthStore } from '@/stores/authStore'
+import { useAuthListener, dashboardPath, onboardingPath } from '@/hooks/useAuth'
+import { useAuthStore, metadataRole } from '@/stores/authStore'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
+import { AuthPage } from '@/pages/AuthPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage'
 
@@ -28,10 +29,29 @@ import { StudentOnboarding } from '@/pages/onboarding/StudentOnboarding'
 import { ParentOnboarding } from '@/pages/onboarding/ParentOnboarding'
 import { CoachOnboarding } from '@/pages/onboarding/CoachOnboarding'
 
+/** Lands here after OAuth callback. Decides where to send the user. */
 function AuthRedirect() {
-  const { profile } = useAuthStore()
-  const redirectPath = useRoleRedirectPath(profile?.role)
-  return <Navigate to={redirectPath} replace />
+  const { session, profile, onboarded, loading, sessionRestored, user } = useAuthStore()
+
+  if (loading || !sessionRestored) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+        <p className="text-text-secondary text-sm">Menyiapkan akunmu...</p>
+      </div>
+    )
+  }
+
+  if (!session) return <Navigate to="/login" replace />
+
+  const role = profile?.role ?? metadataRole(user)
+  if (!role) return <Navigate to="/" replace />
+
+  if (!onboarded) {
+    const onb = onboardingPath(role)
+    if (onb) return <Navigate to={onb} replace />
+  }
+  return <Navigate to={dashboardPath(role)} replace />
 }
 
 export default function App() {
@@ -40,12 +60,20 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<AuthPage mode="login" />} />
+      <Route path="/register" element={<AuthPage mode="register" />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route path="/auth/callback" element={<AuthRedirect />} />
 
-      <Route path="/onboarding/student" element={<ProtectedRoute roles={['student']}><StudentOnboarding /></ProtectedRoute>} />
-      <Route path="/onboarding/parent"  element={<ProtectedRoute roles={['parent']}><ParentOnboarding /></ProtectedRoute>} />
-      <Route path="/onboarding/coach"   element={<ProtectedRoute roles={['coach']}><CoachOnboarding /></ProtectedRoute>} />
+      <Route path="/onboarding/student" element={
+        <ProtectedRoute roles={['student']} allowUnboarded><StudentOnboarding /></ProtectedRoute>
+      } />
+      <Route path="/onboarding/parent" element={
+        <ProtectedRoute roles={['parent']} allowUnboarded><ParentOnboarding /></ProtectedRoute>
+      } />
+      <Route path="/onboarding/coach" element={
+        <ProtectedRoute roles={['coach']} allowUnboarded><CoachOnboarding /></ProtectedRoute>
+      } />
 
       <Route path="/coach"          element={<ProtectedRoute roles={['coach']}><CoachDashboard /></ProtectedRoute>} />
       <Route path="/coach/calendar" element={<ProtectedRoute roles={['coach']}><CoachCalendar /></ProtectedRoute>} />
@@ -63,7 +91,7 @@ export default function App() {
       <Route path="/parent/calendar" element={<ProtectedRoute roles={['parent']}><ParentCalendar /></ProtectedRoute>} />
       <Route path="/parent/reports"  element={<ProtectedRoute roles={['parent']}><ParentReports /></ProtectedRoute>} />
 
-      <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/*" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -33,7 +33,7 @@ serve(async () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            target: notif.recipient_hp,
+            target: notif.recipient_phone,
             message: notif.message,
           }),
         })

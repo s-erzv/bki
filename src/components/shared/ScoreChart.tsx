@@ -1,14 +1,14 @@
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ResponsiveContainer, Tooltip
+  ResponsiveContainer, Tooltip,
 } from 'recharts'
 
-interface ScoreData {
-  penguasaan: number
-  presentasi: number
-  keaktifan: number
-  kedisiplinan: number
-  kreativitas: number
+export interface ScoreData {
+  discipline: number
+  activeness: number
+  communication: number
+  ethics: number
+  understanding: number
 }
 
 interface ScoreChartProps {
@@ -16,18 +16,18 @@ interface ScoreChartProps {
   size?: number
 }
 
-const SCORE_LABELS = {
-  penguasaan:  'Penguasaan Materi',
-  presentasi:  'Presentasi',
-  keaktifan:   'Keaktifan',
-  kedisiplinan: 'Kedisiplinan',
-  kreativitas: 'Kreativitas',
+const SCORE_LABELS: Record<keyof ScoreData, string> = {
+  discipline:    'Disiplin',
+  activeness:    'Keaktifan',
+  communication: 'Komunikasi',
+  ethics:        'Etika',
+  understanding: 'Pemahaman',
 }
 
 export function ScoreChart({ scores, size = 300 }: ScoreChartProps) {
-  const data = Object.entries(SCORE_LABELS).map(([key, label]) => ({
-    subject: label,
-    score: scores[key as keyof ScoreData] ?? 0,
+  const data = (Object.keys(SCORE_LABELS) as Array<keyof ScoreData>).map((key) => ({
+    subject: SCORE_LABELS[key],
+    score: scores[key] ?? 0,
     fullMark: 10,
   }))
 

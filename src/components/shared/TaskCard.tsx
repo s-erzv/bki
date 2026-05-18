@@ -1,21 +1,22 @@
-import { format } from 'date-fns'
-import { id as localeId } from 'date-fns/locale'
 import { Calendar, Users, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import { useToggleTask } from '@/hooks/useTasks'
 import type { Task } from '@/types/database'
 
 interface TaskCardProps {
-  task: Task & { students?: { nama: string } | null; teams?: { team_code: string } | null }
+  task: Task & {
+    students?: { id: string; profiles: { full_name: string } | null } | null
+    teams?: { team_code: string; research_title: string | null } | null
+  }
   canComplete?: boolean
 }
 
 export function TaskCard({ task, canComplete = false }: TaskCardProps) {
   const toggleTask = useToggleTask()
 
-  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && !task.is_completed
-  const assignee = task.student_id ? 'individual' : 'team'
+  const isOverdue = !!task.deadline && new Date(task.deadline) < new Date() && !task.is_completed
+  const assignee: 'individual' | 'team' = task.assigned_student_id ? 'individual' : 'team'
 
   return (
     <div
@@ -24,8 +25,8 @@ export function TaskCard({ task, canComplete = false }: TaskCardProps) {
         task.is_completed
           ? 'border-surface-100 bg-surface-50'
           : isOverdue
-          ? 'border-red-200 bg-red-50'
-          : 'border-surface-200 bg-white hover:shadow-sm'
+            ? 'border-red-200 bg-red-50'
+            : 'border-surface-200 bg-white hover:shadow-sm',
       )}
     >
       {canComplete && (
@@ -40,7 +41,7 @@ export function TaskCard({ task, canComplete = false }: TaskCardProps) {
         <p
           className={cn(
             'text-sm font-medium',
-            task.is_completed ? 'line-through text-text-tertiary' : 'text-text-primary'
+            task.is_completed ? 'line-through text-text-tertiary' : 'text-text-primary',
           )}
         >
           {task.title}
@@ -49,12 +50,14 @@ export function TaskCard({ task, canComplete = false }: TaskCardProps) {
           {task.deadline && (
             <span className={cn('flex items-center gap-1 text-xs', isOverdue ? 'text-danger' : 'text-text-tertiary')}>
               <Calendar className="h-3 w-3" />
-              {format(new Date(task.deadline), 'dd MMM yyyy', { locale: localeId })}
+              {formatDate(task.deadline)}
             </span>
           )}
           <span className="flex items-center gap-1 text-xs text-text-tertiary">
             {assignee === 'team' ? <Users className="h-3 w-3" /> : <User className="h-3 w-3" />}
-            {assignee === 'team' ? (task.teams?.team_code ?? 'Tim') : (task.students?.nama ?? 'Individu')}
+            {assignee === 'team'
+              ? task.teams?.team_code ?? 'Tim'
+              : task.students?.profiles?.full_name ?? 'Individu'}
           </span>
         </div>
       </div>

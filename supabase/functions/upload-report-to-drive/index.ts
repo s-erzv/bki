@@ -33,10 +33,17 @@ serve(async (req) => {
       .eq('id', teamId)
       .single()
 
+    // Get internal profile ID for the coach
+    const { data: coachProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', team?.coach_id)
+      .single()
+
     const { data: token } = await supabase
       .from('oauth_tokens')
       .select('access_token')
-      .eq('user_id', team?.coach_id)
+      .eq('profile_id', coachProfile?.id)
       .eq('scope_level', 'drive_calendar')
       .single()
 

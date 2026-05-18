@@ -1,60 +1,151 @@
 import { useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
-import type { UserRole } from '@/types/database'
+import type { Profile, UserRole } from '@/types/database'
 
+/* ── Listener ───────────────────────────────────────────── */
+
+/**
+ * Auth bootstrap. Relies SOLELY on `onAuthStateChange`, which fires
+ * `INITIAL_SESSION` synchronously on subscribe with the persisted session.
+ *
+ * Why this shape:
+ *  - Supabase's auth callback runs while holding `navigator.locks`. Awaiting
+ *    DB queries inside the callback (the old code) deadlocks because the
+ *    DB call needs the same lock to read the JWT. See:
+ *    https://supabase.com/docs/reference/javascript/auth-onauthstatechange
+ *  - We therefore set session synchronously, then kick off hydration via
+ *    `queueMicrotask` so it runs AFTER the callback returns and the lock
+ *    is released.
+ *  - A watchdog timer guarantees the spinner clears even if `INITIAL_SESSION`
+ *    never fires (e.g. stale lock from a crashed tab).
+ */
 export function useAuthListener() {
-  const { setSession, setProfile, setLoading, clear } = useAuthStore()
+  const {
+    setSession, setProfile, setRoleId, setOnboarded,
+    setLoading, setSessionRestored, clear,
+  } = useAuthStore()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session) {
-        fetchProfile(session.user.id, setProfile)
-      }
+    if (!isSupabaseConfigured) {
+      setSessionRestored(true)
       setLoading(false)
-    })
+      return
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        if (session) {
-          await fetchProfile(session.user.id, setProfile)
-          // Save OAuth tokens after Google login
-          if (event === 'SIGNED_IN' && session.provider_token) {
-            await saveOauthToken(session.user.id, session.provider_token)
-          }
+    let mounted = true
+
+    async function hydrate(userId: string, providerToken?: string | null) {
+      try {
+        const profile = await fetchProfile(userId)
+        if (!mounted) return
+        setProfile(profile)
+        if (!profile) {
+          setRoleId(null)
+          setOnboarded(false)
         } else {
-          clear()
+          const roleId = await fetchRoleRowId(profile.role, profile.id)
+          if (!mounted) return
+          setRoleId(roleId)
+          setOnboarded(Boolean(roleId) || profile.role === 'admin')
+          if (providerToken) {
+            await saveOauthToken(profile.id, providerToken)
+          }
+        }
+      } catch (err) {
+        console.error('[auth] hydrate error', err)
+      } finally {
+        if (mounted) {
+          setSessionRestored(true)
+          setLoading(false)
         }
       }
-    )
+    }
 
-    return () => subscription.unsubscribe()
-  }, [setSession, setProfile, setLoading, clear])
+    // Safety net: if no auth event has fired in 10s, unblock the UI so the
+    // user can at least navigate to /login instead of staring at a spinner.
+    const watchdog = window.setTimeout(() => {
+      if (!mounted) return
+      if (!useAuthStore.getState().sessionRestored) {
+        console.warn('[auth] watchdog: no INITIAL_SESSION after 10s, unblocking UI')
+        setSessionRestored(true)
+        setLoading(false)
+      }
+    }, 10_000)
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return
+      setSession(session)
+
+      // IMPORTANT: never `await` Supabase calls directly inside this callback —
+      // it holds the auth lock. Defer with queueMicrotask so the lock releases first.
+      if (event === 'INITIAL_SESSION') {
+        if (session) {
+          queueMicrotask(() => { void hydrate(session.user.id) })
+        } else {
+          setProfile(null)
+          setRoleId(null)
+          setOnboarded(false)
+          setSessionRestored(true)
+          setLoading(false)
+        }
+      } else if (event === 'SIGNED_IN' && session) {
+        queueMicrotask(() => { void hydrate(session.user.id, session.provider_token) })
+      } else if (event === 'SIGNED_OUT') {
+        clear()
+      } else if (event === 'USER_UPDATED' && session) {
+        queueMicrotask(() => { void hydrate(session.user.id) })
+      }
+      // TOKEN_REFRESHED: profile already loaded, nothing to do.
+    })
+
+    return () => {
+      mounted = false
+      window.clearTimeout(watchdog)
+      subscription.unsubscribe()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 }
 
-async function fetchProfile(
-  userId: string,
-  setProfile: (p: import('@/types/database').Profile | null) => void
-) {
+/* ── Queries ────────────────────────────────────────────── */
+
+async function fetchProfile(authUserId: string): Promise<Profile | null> {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('auth_user_id', userId)
-    .single()
-  if (!error && data) setProfile(data)
+    .eq('auth_user_id', authUserId)
+    .maybeSingle()
+  if (error) {
+    console.error('[auth] fetchProfile', error)
+    return null
+  }
+  return (data as Profile | null) ?? null
 }
 
-async function saveOauthToken(userId: string, accessToken: string) {
-  await supabase.from('oauth_tokens').upsert({
-    user_id: userId,
-    scope_level: 'basic',
-    access_token: accessToken,
-  }, { onConflict: 'user_id' })
+async function fetchRoleRowId(role: UserRole, profileId: string): Promise<string | null> {
+  const table = role === 'coach' ? 'coaches' : role === 'student' ? 'students' : role === 'parent' ? 'parents' : null
+  if (!table) return null
+  const { data, error } = await supabase
+    .from(table)
+    .select('id')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+  if (error) {
+    console.error(`[auth] fetchRoleRowId(${table})`, error)
+    return null
+  }
+  return (data as { id: string } | null)?.id ?? null
 }
 
-/* ── Sign In (existing users) ─────────────────────────── */
+async function saveOauthToken(profileId: string, accessToken: string) {
+  await supabase.from('oauth_tokens').upsert(
+    { profile_id: profileId, provider: 'google', scope_level: 'basic', access_token: accessToken },
+    { onConflict: 'profile_id' },
+  )
+}
+
+/* ── Sign in / up / out ─────────────────────────────────── */
 
 export function useSignInWithGoogle() {
   return async () => {
@@ -76,8 +167,6 @@ export function useSignInWithEmail() {
   }
 }
 
-/* ── Sign Up (new users) ──────────────────────────────── */
-
 export function useSignUpWithGoogle() {
   return async (role: UserRole = 'student') => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -85,8 +174,9 @@ export function useSignUpWithGoogle() {
       options: {
         scopes: 'email profile',
         redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: { role },  // passed to raw_user_meta_data via trigger
-      },
+        queryParams: { prompt: 'select_account' },
+        data: { role },
+      } as never, // 'data' lives under options but supabase-js types omit it; this is safe.
     })
     if (error) throw error
   }
@@ -98,14 +188,13 @@ export function useSignUpWithEmail() {
       email,
       password,
       options: {
-        data: { role, full_name: fullName },  // stored in raw_user_meta_data
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: { role, full_name: fullName },
       },
     })
     if (error) throw error
   }
 }
-
-/* ── Sign Out ─────────────────────────────────────────── */
 
 export function useSignOut() {
   const { clear } = useAuthStore()
@@ -115,9 +204,9 @@ export function useSignOut() {
   }
 }
 
-/* ── Helpers ──────────────────────────────────────────── */
+/* ── Routing helpers ────────────────────────────────────── */
 
-export function useRoleRedirectPath(role: UserRole | undefined | null): string {
+export function dashboardPath(role: UserRole | null | undefined): string {
   switch (role) {
     case 'coach':   return '/coach'
     case 'student': return '/student'
@@ -126,3 +215,15 @@ export function useRoleRedirectPath(role: UserRole | undefined | null): string {
     default:        return '/'
   }
 }
+
+export function onboardingPath(role: UserRole | null | undefined): string | null {
+  switch (role) {
+    case 'coach':   return '/onboarding/coach'
+    case 'student': return '/onboarding/student'
+    case 'parent':  return '/onboarding/parent'
+    default:        return null
+  }
+}
+
+/** @deprecated kept for backward compat; use {@link dashboardPath}. */
+export const useRoleRedirectPath = dashboardPath

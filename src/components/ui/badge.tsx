@@ -12,6 +12,7 @@ const badgeVariants = cva(
         warning: 'bg-amber-100 text-amber-700',
         danger:  'bg-red-100 text-red-700',
         secondary: 'bg-surface-100 text-text-secondary',
+        outline: 'border border-surface-200 text-text-secondary',
         online: 'bg-blue-100 text-blue-700',
         offline: 'bg-orange-100 text-orange-700',
       },

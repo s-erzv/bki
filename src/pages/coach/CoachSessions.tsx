@@ -18,8 +18,7 @@ export function CoachSessions() {
         <div className="flex items-center justify-between">
           <p className="text-text-secondary text-sm">{sessions.length} sesi tercatat</p>
           <Button onClick={() => navigate('/coach/report')}>
-            <Plus className="h-4 w-4" />
-            Isi Laporan Baru
+            <Plus className="h-4 w-4" />Isi Laporan Baru
           </Button>
         </div>
 
@@ -36,20 +35,20 @@ export function CoachSessions() {
               <Card key={s.id}>
                 <CardContent className="p-5 flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Badge variant={s.media === 'online' ? 'online' : 'offline'}>{s.media}</Badge>
-                      {(s as { teams?: { team_code?: string } }).teams?.team_code && (
-                        <Badge variant="secondary">{(s as { teams?: { team_code?: string } }).teams?.team_code}</Badge>
-                      )}
+                      {s.teams?.team_code && <Badge variant="secondary">{s.teams.team_code}</Badge>}
                     </div>
                     <p className="font-medium text-text-primary truncate">{s.topic ?? 'Sesi'}</p>
-                    <p className="text-sm text-text-secondary">{formatDate(s.date)} • {s.duration_minutes} menit</p>
+                    <p className="text-sm text-text-secondary">
+                      {formatDate(s.session_date)}
+                      {s.duration_mins ? ` • ${s.duration_mins} menit` : ''}
+                    </p>
                   </div>
                   {s.drive_report_url && (
                     <Button size="sm" variant="outline" asChild>
                       <a href={s.drive_report_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                        PDF
+                        <ExternalLink className="h-4 w-4" />PDF
                       </a>
                     </Button>
                   )}

@@ -1,196 +1,190 @@
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useState, useMemo } from 'react'
+import { CalendarPlus, MapPin, Video, Users, BookOpen, FilePlus2, ExternalLink } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
-import { ClassCard } from '@/components/shared/ClassCard'
+import { SetKelasForm } from '@/components/shared/SetKelasForm'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody, SheetFooter } from '@/components/ui/sheet'
+import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCoachClasses, useCreateClass } from '@/hooks/useClasses'
-import { useCoachTeams } from '@/hooks/useTeam'
-import { toast } from '@/components/ui/use-toast'
+import { EmptyState } from '@/components/ui/empty-state'
+import { useCoachClasses } from '@/hooks/useClasses'
+import { useNavigate } from 'react-router-dom'
+import { cn, formatWIB } from '@/lib/utils'
 
-const classSchema = z.object({
-  date: z.string().min(1, 'Tanggal wajib diisi'),
-  time: z.string().min(1, 'Waktu wajib diisi'),
-  duration_minutes: z.number().min(1),
-  media: z.enum(['online', 'offline']),
-  location: z.string().optional(),
-  maps_url: z.string().url('URL tidak valid').optional().or(z.literal('')),
-  topic: z.string().min(1, 'Topik wajib diisi'),
-  teamIds: z.array(z.string()).min(1, 'Pilih minimal 1 tim'),
-})
-type ClassFormData = z.infer<typeof classSchema>
+type Filter = 'upcoming' | 'past' | 'all'
 
 export function CoachClasses() {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState<Filter>('upcoming')
   const { data: classes = [], isLoading } = useCoachClasses()
-  const { data: teams = [] } = useCoachTeams()
-  const createClass = useCreateClass()
 
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<ClassFormData>({
-    resolver: zodResolver(classSchema),
-    defaultValues: { media: 'online', duration_minutes: 90, teamIds: [] },
-  })
-  const media = watch('media')
-  const selectedTeamIds = watch('teamIds') ?? []
+  const now = Date.now()
+  const filtered = useMemo(() => {
+    const list = filter === 'upcoming'
+      ? classes.filter((c) => new Date(c.scheduled_at).getTime() >= now)
+      : filter === 'past'
+        ? classes.filter((c) => new Date(c.scheduled_at).getTime() < now)
+        : classes
+    return [...list].sort((a, b) => {
+      const av = new Date(a.scheduled_at).getTime()
+      const bv = new Date(b.scheduled_at).getTime()
+      return filter === 'past' ? bv - av : av - bv
+    })
+  }, [classes, filter, now])
 
-  const toggleTeam = (id: string) => {
-    setValue(
-      'teamIds',
-      selectedTeamIds.includes(id) ? selectedTeamIds.filter((t) => t !== id) : [...selectedTeamIds, id]
-    )
-  }
-
-  const onSubmit = async (data: ClassFormData): Promise<void> => {
-    try {
-      await createClass.mutateAsync({
-        classData: {
-          date: data.date,
-          time: data.time,
-          duration_minutes: data.duration_minutes,
-          media: data.media,
-          location: data.location || null,
-          maps_url: data.maps_url || null,
-          topic: data.topic,
-        },
-        teamIds: data.teamIds,
-      })
-      toast({ title: 'Kelas berhasil dibuat!', variant: 'default' })
-      reset()
-      setOpen(false)
-    } catch (err) {
-      toast({ title: 'Gagal membuat kelas', description: String(err), variant: 'destructive' })
-    }
+  const counts = {
+    upcoming: classes.filter((c) => new Date(c.scheduled_at).getTime() >= now).length,
+    past:     classes.filter((c) => new Date(c.scheduled_at).getTime() < now).length,
+    all:      classes.length,
   }
 
   return (
-    <DashboardLayout title="Daftar Kelas">
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <p className="text-text-secondary text-sm">{classes.length} kelas terdaftar</p>
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Tambah Jadwal Pertemuan
-          </Button>
+    <DashboardLayout
+      title="Daftar Kelas"
+      subtitle={`${classes.length} kelas total · ${counts.upcoming} mendatang`}
+      actions={
+        <Button onClick={() => setOpen(true)} className="gap-1.5">
+          <CalendarPlus className="h-4 w-4" />
+          <span className="hidden sm:inline">Jadwalkan Kelas</span>
+        </Button>
+      }
+    >
+      <div className="space-y-5">
+        {/* Filter tabs */}
+        <div className="inline-flex items-center gap-1 rounded-xl border border-surface-200 bg-white p-1 shadow-soft">
+          {(['upcoming', 'past', 'all'] as Filter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                'px-3 h-8 rounded-lg text-xs font-bold transition-all',
+                filter === f
+                  ? 'bg-primary-950 text-white shadow-soft'
+                  : 'text-text-secondary hover:bg-surface-50 hover:text-text-primary',
+              )}
+            >
+              {f === 'upcoming' ? 'Mendatang' : f === 'past' ? 'Selesai' : 'Semua'}
+              <span className="ml-1.5 text-[10px] opacity-70 tabular-nums">{counts[f]}</span>
+            </button>
+          ))}
         </div>
 
+        {/* List */}
         {isLoading ? (
-          <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}</div>
-        ) : classes.length === 0 ? (
-          <div className="text-center py-16 text-text-tertiary">
-            <BookOpenIcon className="h-12 w-12 mx-auto mb-3 opacity-40" />
-            <p>Belum ada kelas. Tambahkan jadwal pertemuan pertamamu.</p>
-          </div>
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}</div>
+        ) : filtered.length === 0 ? (
+          <Card>
+            <CardContent>
+              <EmptyState
+                icon={BookOpen}
+                title={filter === 'upcoming' ? 'Belum ada kelas mendatang' : filter === 'past' ? 'Belum ada kelas selesai' : 'Belum ada kelas'}
+                description="Jadwalkan kelas baru lewat tombol di kanan atas."
+                action={
+                  <Button onClick={() => setOpen(true)} size="sm">
+                    <CalendarPlus className="h-3.5 w-3.5 mr-1.5" /> Jadwalkan Kelas
+                  </Button>
+                }
+                size="lg"
+              />
+            </CardContent>
+          </Card>
         ) : (
-          <div className="space-y-4">
-            {classes.map((cls) => <ClassCard key={cls.id} cls={cls as Parameters<typeof ClassCard>[0]['cls']} showReportBtn />)}
+          <div className="space-y-3">
+            {filtered.map((c) => {
+              const teams = (c.class_teams ?? []).map((ct) => ct.teams).filter(Boolean) as Array<{ team_code: string; research_title: string | null }>
+              const isPast = new Date(c.scheduled_at).getTime() < now
+              return (
+                <Card key={c.id} className={cn('overflow-hidden transition-all hover:shadow-lift', isPast && 'opacity-90')}>
+                  <CardContent className="p-0">
+                    <div className="flex flex-col sm:flex-row">
+                      {/* Date block */}
+                      <div className={cn(
+                        'flex sm:flex-col items-center justify-center gap-3 sm:gap-1 p-5 sm:w-32 flex-shrink-0',
+                        isPast ? 'bg-surface-100 text-text-secondary' : 'bg-primary-950 text-white',
+                      )}>
+                        <div className="text-center">
+                          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">{formatWIB(c.scheduled_at, 'EEE')}</p>
+                          <p className="text-3xl font-extrabold tabular-nums leading-tight">{formatWIB(c.scheduled_at, 'd')}</p>
+                          <p className="text-[10px] uppercase font-bold tracking-wider opacity-70">{formatWIB(c.scheduled_at, 'MMM yyyy')}</p>
+                        </div>
+                        <div className="hidden sm:block w-8 h-px bg-white/20" />
+                        <p className="text-sm font-bold tabular-nums">{formatWIB(c.scheduled_at, 'HH:mm')}</p>
+                      </div>
+
+                      {/* Main info */}
+                      <div className="flex-1 p-5 min-w-0">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                              <Badge variant={c.media === 'online' ? 'success' : 'secondary'} className="gap-1 text-[10px]">
+                                {c.media === 'online' ? <Video className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                                {c.media === 'online' ? 'Online' : 'Tatap Muka'}
+                              </Badge>
+                              {c.duration_mins && (
+                                <span className="text-[11px] text-text-tertiary">{c.duration_mins} menit</span>
+                              )}
+                            </div>
+                            <h3 className="text-base font-bold text-text-primary leading-snug">{c.topic ?? 'Pertemuan'}</h3>
+                            <p className="text-xs text-text-tertiary mt-0.5">
+                              {formatWIB(c.scheduled_at, 'EEEE, d MMMM yyyy · HH:mm')} WIB
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Teams */}
+                        {teams.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                            <Users className="h-3 w-3 text-text-tertiary" />
+                            {teams.map((t, i) => (
+                              <Badge key={i} variant="outline" className="font-mono text-[10px]">{t.team_code}</Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Location / link */}
+                        {c.media === 'offline' && c.location && (
+                          <p className="mt-2 text-xs text-text-secondary inline-flex items-center gap-1.5">
+                            <MapPin className="h-3 w-3" /> {c.location}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex sm:flex-col items-stretch justify-end gap-2 p-5 sm:w-44 bg-surface-50/40 sm:border-l border-surface-100">
+                        {!isPast && c.media === 'online' && c.gmeet_link && (
+                          <Button asChild size="sm" className="flex-1 sm:flex-none">
+                            <a href={c.gmeet_link} target="_blank" rel="noopener noreferrer">
+                              <Video className="h-3.5 w-3.5 mr-1.5" /> Masuk Meet
+                            </a>
+                          </Button>
+                        )}
+                        {c.media === 'offline' && c.maps_url && (
+                          <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none">
+                            <a href={c.maps_url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Maps
+                            </a>
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 sm:flex-none"
+                          onClick={() => navigate(`/coach/report?classId=${c.id}`)}
+                        >
+                          <FilePlus2 className="h-3.5 w-3.5 mr-1.5" /> Buat Laporan
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         )}
       </div>
 
-      {/* Set Kelas Sheet */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Tambah Jadwal Pertemuan</SheetTitle>
-          </SheetHeader>
-          <SheetBody>
-            <form id="class-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Tanggal</Label>
-                  <Input type="date" {...register('date')} />
-                  {errors.date && <p className="text-xs text-danger">{errors.date.message}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Waktu</Label>
-                  <Input type="time" {...register('time')} />
-                  {errors.time && <p className="text-xs text-danger">{errors.time.message}</p>}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Durasi (menit)</Label>
-                <Input type="number" {...register('duration_minutes', { valueAsNumber: true })} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Media</Label>
-                <Select defaultValue="online" onValueChange={(v) => setValue('media', v as 'online' | 'offline')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="online">Online</SelectItem>
-                    <SelectItem value="offline">Offline</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {media === 'offline' && (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Lokasi</Label>
-                    <Input placeholder="Nama tempat" {...register('location')} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>URL Maps (opsional)</Label>
-                    <Input placeholder="https://maps.google.com/..." {...register('maps_url')} />
-                    {errors.maps_url && <p className="text-xs text-danger">{errors.maps_url.message}</p>}
-                  </div>
-                </>
-              )}
-
-              <div className="space-y-1.5">
-                <Label>Topik / Materi</Label>
-                <Input placeholder="Topik pertemuan ini" {...register('topic')} />
-                {errors.topic && <p className="text-xs text-danger">{errors.topic.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Pilih Tim</Label>
-                {teams.length === 0 ? (
-                  <p className="text-sm text-text-tertiary">Belum ada tim terdaftar</p>
-                ) : (
-                  <div className="space-y-2">
-                    {teams.map((team) => (
-                      <label key={team.id} className="flex items-center gap-3 p-3 rounded-lg border border-surface-200 cursor-pointer hover:bg-surface-50">
-                        <input
-                          type="checkbox"
-                          checked={selectedTeamIds.includes(team.id)}
-                          onChange={() => toggleTeam(team.id)}
-                          className="h-4 w-4 rounded border-surface-300 text-primary-600"
-                        />
-                        <span className="text-sm font-medium">{team.team_code}</span>
-                        <span className="text-xs text-text-tertiary">{team.nama_tim}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-                {errors.teamIds && <p className="text-xs text-danger">{errors.teamIds.message}</p>}
-              </div>
-            </form>
-          </SheetBody>
-          <SheetFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button type="submit" form="class-form" disabled={createClass.isPending}>
-              {createClass.isPending ? 'Menyimpan...' : 'Simpan Kelas'}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <SetKelasForm open={open} onOpenChange={setOpen} />
     </DashboardLayout>
-  )
-}
-
-function BookOpenIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-    </svg>
   )
 }

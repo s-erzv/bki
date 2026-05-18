@@ -3,21 +3,22 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 
 export function useGoogleDriveAccess() {
-  const userId = useAuthStore((s) => s.user?.id)
+  const profileId = useAuthStore((s) => s.profile?.id)
 
   const { data: token } = useQuery({
-    queryKey: ['oauth_token', userId],
+    queryKey: ['oauth_token', profileId],
     queryFn: async () => {
-      if (!userId) return null
+      if (!profileId) return null
       const { data, error } = await supabase
         .from('oauth_tokens')
         .select('scope_level')
-        .eq('user_id', userId)
-        .single()
-      if (error) return null
-      return data
+        .eq('profile_id', profileId)
+        .limit(1)
+      
+      if (error || !data || data.length === 0) return null
+      return data[0]
     },
-    enabled: !!userId,
+    enabled: !!profileId,
   })
 
   const hasAccess = token?.scope_level === 'drive_calendar'
