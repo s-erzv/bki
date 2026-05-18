@@ -6,6 +6,7 @@ import { z } from 'zod'
 import {
   Shield, Microscope, FileText, Presentation, Megaphone, GraduationCap, ArrowRight,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,7 +18,7 @@ import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import type { CoachDivision } from '@/types/database'
 
-const DIVISIONS: Array<{ value: CoachDivision; label: string; description: string; icon: React.ComponentType<{ className?: string }> }> = [
+const DIVISIONS: Array<{ value: CoachDivision; label: string; description: string; icon: LucideIcon }> = [
   { value: 'research',     label: 'Research',     description: 'Penelitian & metode ilmiah',  icon: Microscope },
   { value: 'paper',        label: 'Paper',        description: 'Penulisan makalah',           icon: FileText },
   { value: 'presentation', label: 'Presentation', description: 'Komunikasi & deck',           icon: Presentation },

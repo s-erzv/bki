@@ -7,7 +7,7 @@ import {
   Plus, Users, Pencil, Trash2, UserPlus, Search,
   Microscope, ChevronRight, X, Hash,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

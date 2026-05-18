@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
 import { GraduationCap, Heart, Users, ShieldCheck } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/database'
 
 const ROLE_META: Record<UserRole, {
-  label: string; icon: React.ComponentType<{ className?: string }>;
+  label: string; icon: LucideIcon;
   accent: string; tagline: string;
 }> = {
   coach:   { label: 'Pembimbing', icon: GraduationCap, accent: 'from-primary-500 to-primary-700',   tagline: 'Lengkapi profilmu untuk mulai membimbing.' },

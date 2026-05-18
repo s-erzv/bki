@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -7,15 +7,13 @@ import {
   GraduationCap, Users as UsersIcon, Heart, ShieldCheck, Mail, Phone,
   Microscope, FileText, Presentation, Megaphone, Shield,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetBody, SheetFooter,
 } from '@/components/ui/sheet'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '@/lib/supabase'
@@ -23,14 +21,14 @@ import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import type { Profile, UserRole, CoachDivision } from '@/types/database'
 
-const ROLE_META: Record<UserRole, { label: string; icon: React.ComponentType<{ className?: string }>; accent: string }> = {
+const ROLE_META: Record<UserRole, { label: string; icon: LucideIcon; accent: string }> = {
   coach:   { label: 'Pembimbing', icon: GraduationCap, accent: 'from-primary-500 to-primary-700' },
   student: { label: 'Murid',      icon: UsersIcon,     accent: 'from-accent-teal to-primary-600' },
   parent:  { label: 'Orang Tua',  icon: Heart,         accent: 'from-accent-purple to-primary-700' },
   admin:   { label: 'Admin',      icon: ShieldCheck,   accent: 'from-text-secondary to-primary-950' },
 }
 
-const DIVISIONS: Array<{ value: CoachDivision; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+const DIVISIONS: Array<{ value: CoachDivision; label: string; icon: LucideIcon }> = [
   { value: 'research',     label: 'Research',     icon: Microscope },
   { value: 'paper',        label: 'Paper',        icon: FileText },
   { value: 'presentation', label: 'Presentation', icon: Presentation },

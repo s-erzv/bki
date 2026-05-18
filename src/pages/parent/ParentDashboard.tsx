@@ -4,6 +4,7 @@ import {
   Calendar, FolderOpen, FileText, ArrowRight,
   TrendingUp, Users, Heart, Download,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { ProfileHeroCard } from '@/components/shared/ProfileHeroCard'
 import { ScoreChart } from '@/components/shared/ScoreChart'
@@ -305,7 +306,7 @@ interface ScoreSummaryProps {
   value: string | number
   suffix?: string
   description: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   accent: keyof typeof ACCENT_STAT
   customValueNode?: React.ReactNode
 }
@@ -328,7 +329,7 @@ function ScoreSummary({ label, value, suffix, description, icon: Icon, accent, c
 }
 
 interface MiniShortcutProps {
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   label: string
   onClick: () => void
 }

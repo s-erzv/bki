@@ -3,6 +3,7 @@ import {
   Calendar, FolderOpen, ListChecks, ArrowRight, CheckCircle2,
   Users, Sparkles,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { ProfileHeroCard } from '@/components/shared/ProfileHeroCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -292,7 +293,7 @@ export function StudentDashboard() {
 }
 
 interface ShortcutCardProps {
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   title: string
   description: string
   onClick: () => void

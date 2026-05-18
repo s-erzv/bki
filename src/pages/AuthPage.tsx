@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { GraduationCap, Globe, Mail, ArrowLeft, Sparkles, ShieldCheck, Heart, Users } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -36,7 +37,7 @@ const registerSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 type RegisterForm = z.infer<typeof registerSchema>
 
-const ROLE_META: Record<UserRole, { label: string; icon: React.ComponentType<{ className?: string }>; accent: string; tagline: string }> = {
+const ROLE_META: Record<UserRole, { label: string; icon: LucideIcon; accent: string; tagline: string }> = {
   coach:   { label: 'Pembimbing', icon: GraduationCap, accent: 'from-primary-500 to-primary-700',     tagline: 'Bimbing, jadwalkan, laporkan.' },
   student: { label: 'Murid',      icon: Users,         accent: 'from-accent-teal to-primary-600',      tagline: 'Riset & tugas dalam satu pintu.' },
   parent:  { label: 'Orang Tua',  icon: Heart,         accent: 'from-accent-purple to-primary-700',    tagline: 'Pantau perkembangan anakmu.' },

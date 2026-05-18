@@ -5,6 +5,7 @@ import {
   CalendarCheck2, ClipboardCheck, FileBarChart2, MessagesSquare,
   ArrowRight, Microscope, FileText, Presentation, CheckCircle2,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore, metadataRole } from '@/stores/authStore'
 import { dashboardPath, onboardingPath } from '@/hooks/useAuth'
@@ -18,7 +19,7 @@ const HERO_SLIDES: Array<{ from: string; via?: string; to: string; tint: string 
   { from: 'from-primary-900',  via: 'via-primary-700',  to: 'to-accent-amber',  tint: 'bg-primary-950/70' },
 ]
 
-const ROLES: Array<{ role: UserRole; label: string; subtitle: string; icon: React.ComponentType<{ className?: string }> }> = [
+const ROLES: Array<{ role: UserRole; label: string; subtitle: string; icon: LucideIcon }> = [
   { role: 'coach',   label: 'Masuk Sebagai Coach',      subtitle: 'Bimbing, jadwalkan, laporkan',  icon: GraduationCap },
   { role: 'parent',  label: 'Masuk Sebagai Wali Murid', subtitle: 'Pantau progres anak',           icon: Heart },
   { role: 'student', label: 'Masuk Sebagai Murid',      subtitle: 'Kelas, tugas, dan riset',       icon: Users },

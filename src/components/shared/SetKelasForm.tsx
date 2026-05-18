@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Video, MapPin, Clock, Calendar as CalendarIcon, Users as UsersIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -214,7 +215,7 @@ export function SetKelasForm({ open, onOpenChange, defaultDate }: SetKelasFormPr
 
 interface SectionProps {
   label: string
-  icon?: React.ComponentType<{ className?: string }>
+  icon?: LucideIcon
   children: React.ReactNode
 }
 function Section({ label, icon: Icon, children }: SectionProps) {
@@ -250,7 +251,7 @@ function FormField({ label, error, children }: FormFieldProps) {
 
 interface MediaOptionProps {
   selected: boolean
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   label: string
   description: string
   onClick: () => void

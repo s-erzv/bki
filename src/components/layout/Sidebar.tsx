@@ -5,6 +5,7 @@ import {
   LogOut, ChevronLeft, ChevronRight, Users, Bell, Heart, UserPlus,
   FilePlus2, GraduationCap,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
 import { useSignOut } from '@/hooks/useAuth'
@@ -12,7 +13,7 @@ import type { UserRole } from '@/types/database'
 
 interface NavItem {
   label: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   to: string
   section?: 'main' | 'action'
 }

@@ -4,6 +4,7 @@ import {
   Calendar, CalendarPlus, FolderOpen, Users, ClipboardList,
   FilePlus2, ArrowRight, GraduationCap, CheckSquare, BookOpen,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { GoogleConnectBanner } from '@/components/shared/GoogleConnectBanner'
 import { ProfileHeroCard } from '@/components/shared/ProfileHeroCard'
@@ -289,7 +290,7 @@ const ACCENT_STAT = {
 interface MiniStatProps {
   label: string
   value: number | null
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   accent: keyof typeof ACCENT_STAT
 }
 function MiniStat({ label, value, icon: Icon, accent }: MiniStatProps) {
@@ -319,7 +320,7 @@ const ACCENT_SHORTCUT = {
   amber:   { bg: 'bg-accent-amber/10',   ring: 'group-hover:ring-accent-amber/30', fg: 'text-accent-amber' },
 }
 interface ShortcutCardProps {
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   title: string
   description: string
   onClick: () => void
@@ -349,7 +350,7 @@ function ShortcutCard({ icon: Icon, title, description, onClick, accent }: Short
 }
 
 interface BigActionProps {
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   title: string
   subtitle: string
   cta: string

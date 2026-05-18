@@ -2,6 +2,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { FileText, Link as LinkIcon, Trash2, Plus, Users as UsersIcon, User, Calendar as CalendarIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -264,7 +265,7 @@ export function SetTugasForm({ open, onOpenChange, task }: SetTugasFormProps) {
 
 /* ─────────────────────────────────────────────────────── */
 
-function Section({ label, icon: Icon, children }: { label: string; icon?: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+function Section({ label, icon: Icon, children }: { label: string; icon?: LucideIcon; children: React.ReactNode }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
@@ -292,7 +293,7 @@ function FormField({ label, error, children }: { label: string; error?: string; 
 
 interface AssigneeOptionProps {
   selected: boolean
-  icon: React.ComponentType<{ className?: string }>
+  icon: LucideIcon
   label: string
   description: string
   onClick: () => void
