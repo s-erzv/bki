@@ -7,24 +7,17 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans:    ['Plus Jakarta Sans', 'sans-serif'],
-        display: ['"Instrument Serif"', 'Georgia', 'serif'],
-        mono:    ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        sans: ['Plus Jakarta Sans', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       backgroundImage: {
-        // Fine graph-paper grid — light ink on warm paper. Use with bg-paper.
-        'grid-fine': `linear-gradient(to right, rgba(15,32,96,0.06) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(15,32,96,0.06) 1px, transparent 1px)`,
-        // Dot grid — slightly more spaced.
-        'grid-dot':  'radial-gradient(circle at 1px 1px, rgba(15,32,96,0.18) 1px, transparent 0)',
-        // White-on-dark version for navy sections.
-        'grid-fine-inv': `linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
-                          linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)`,
+        // Subtle dot grid for hero background — modern and decorative, not academic.
+        'dot-grid':     'radial-gradient(circle at 1px 1px, rgba(15,32,96,0.10) 1px, transparent 0)',
+        'dot-grid-inv': 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.10) 1px, transparent 0)',
       },
       backgroundSize: {
-        'grid-sm': '24px 24px',
-        'grid-md': '40px 40px',
-        'grid-lg': '64px 64px',
+        'grid-md': '24px 24px',
+        'grid-lg': '32px 32px',
       },
       colors: {
         // Brand blue — primary kept for backward compat; same scale.
@@ -62,16 +55,13 @@ const config: Config = {
           teal:   '#14b8a6',
           rose:   '#f43f5e',
         },
-        // Warm off-white "paper" used by landing & document pages — feels less
-        // sterile than pure white, evokes a research notebook.
-        paper: {
-          50:  '#fcfbf6',
-          100: '#f7f4ea',
-          200: '#ece6d2',
-        },
-        ink: {
-          DEFAULT: '#0a1840',
-          highlighter: '#fde68a', // soft amber for "marked passages"
+        // Warm coral — energetic accent used on landing for CTA highlights, badges.
+        brand: {
+          50:  '#fff4f0',
+          100: '#ffe5db',
+          400: '#ff8a6a',
+          500: '#ff6b4a',
+          600: '#e74e2d',
         },
         success: '#10b981',
         warning: '#f59e0b',
