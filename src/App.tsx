@@ -6,6 +6,8 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AuthPage } from '@/pages/AuthPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage'
+import { PrivacyPolicy } from '@/pages/PrivacyPolicy'
+import { TermsOfService } from '@/pages/TermsOfService'
 
 import { CoachDashboard } from '@/pages/coach/CoachDashboard'
 import { CoachCalendar } from '@/pages/coach/CoachCalendar'
@@ -62,6 +64,8 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route path="/auth/callback" element={<AuthRedirect />} />
 

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import {
-  GraduationCap, Users, Heart, Shield, Sparkles,
+  GraduationCap, Users, Heart, Shield,
   CalendarCheck2, ClipboardCheck, FileBarChart2, MessagesSquare,
-  ArrowRight, Microscope, FileText, Presentation, CheckCircle2,
+  ArrowRight, ArrowUpRight, Microscope, FileText, Presentation,
+  FolderOpen, BarChart3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -12,38 +13,65 @@ import { dashboardPath, onboardingPath } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/database'
 
-/** Rotating hero backgrounds. Tailwind gradients are stand-ins until real photo assets land. */
-const HERO_SLIDES: Array<{ from: string; via?: string; to: string; tint: string }> = [
-  { from: 'from-primary-950',  via: 'via-primary-800',  to: 'to-accent-teal',   tint: 'bg-primary-950/70' },
-  { from: 'from-accent-purple', via: 'via-primary-800', to: 'to-primary-950',   tint: 'bg-primary-950/75' },
-  { from: 'from-primary-900',  via: 'via-primary-700',  to: 'to-accent-amber',  tint: 'bg-primary-950/70' },
+/* ─────────────────────────────────────────────────────────────────────── */
+
+const ROLES: Array<{ role: UserRole; code: string; label: string; subtitle: string; icon: LucideIcon }> = [
+  { role: 'coach',   code: 'A', label: 'Pembimbing',  subtitle: 'Jadwalkan kelas, beri tugas, laporkan sesi',  icon: GraduationCap },
+  { role: 'student', code: 'B', label: 'Murid',       subtitle: 'Akses kelas, kumpul tugas, lihat skor',       icon: Users },
+  { role: 'parent',  code: 'C', label: 'Wali Murid',  subtitle: 'Pantau progres anak, terima laporan WA',      icon: Heart },
+  { role: 'admin',   code: 'D', label: 'Admin',       subtitle: 'Kelola akun, tim, dan operasional sistem',    icon: Shield },
 ]
 
-const ROLES: Array<{ role: UserRole; label: string; subtitle: string; icon: LucideIcon }> = [
-  { role: 'coach',   label: 'Masuk Sebagai Coach',      subtitle: 'Bimbing, jadwalkan, laporkan',  icon: GraduationCap },
-  { role: 'parent',  label: 'Masuk Sebagai Wali Murid', subtitle: 'Pantau progres anak',           icon: Heart },
-  { role: 'student', label: 'Masuk Sebagai Murid',      subtitle: 'Kelas, tugas, dan riset',       icon: Users },
-  { role: 'admin',   label: 'Masuk Sebagai Admin',      subtitle: 'Kelola seluruh sistem',         icon: Shield },
+const DISCIPLINES = [
+  {
+    code: 'A·01',
+    icon: Microscope,
+    title: 'Penelitian',
+    description:
+      'Pendampingan rumusan masalah, metode, eksperimen, dan analisis. Setiap tim memiliki coach divisi riset khusus.',
+    notes: ['ide → metode', 'data → analisis', 'temuan → kesimpulan'],
+  },
+  {
+    code: 'A·02',
+    icon: FileText,
+    title: 'Makalah',
+    description:
+      'Bimbingan penulisan ilmiah dari outline hingga revisi akhir. Siap submit untuk kompetisi atau publikasi sekolah.',
+    notes: ['abstrak', 'pendahuluan', 'metodologi', 'hasil & pembahasan'],
+  },
+  {
+    code: 'A·03',
+    icon: Presentation,
+    title: 'Presentasi',
+    description:
+      'Latihan deck, narasi, dan tanya jawab. Coach divisi presentasi melatih cara berbicara di panggung lomba.',
+    notes: ['storytelling', 'visual deck', 'public speaking'],
+  },
 ]
 
-const FOCUS_AREAS = [
-  { icon: Microscope,   title: 'Penelitian',  desc: 'Pendampingan ide, metode, hingga hasil — terstruktur per tim.' },
-  { icon: FileText,     title: 'Makalah',     desc: 'Pembimbingan menulis ilmiah yang siap kompetisi & publikasi.' },
-  { icon: Presentation, title: 'Presentasi',  desc: 'Latihan komunikasi & visual deck untuk panggung lomba.' },
+const METHOD_STEPS = [
+  { n: '01', title: 'Pemetaan minat',     desc: 'Murid dipetakan minat & potensi sebelum dibagi ke tim.' },
+  { n: '02', title: 'Tim & pembimbing',   desc: 'Max 6 murid per tim. Coach khusus per divisi.' },
+  { n: '03', title: 'Bimbingan rutin',    desc: 'Sesi online/offline dijadwalkan, terdokumentasi.' },
+  { n: '04', title: 'Laporan transparan', desc: 'PDF tiap sesi dikirim ke wali via WhatsApp.' },
 ]
 
-const CONCEPT_STEPS = [
-  { n: '01', title: 'Pemetaan minat', desc: 'Setiap murid dipetakan minat & potensinya sebelum dibagi ke tim.' },
-  { n: '02', title: 'Tim & pembimbing', desc: 'Maksimal 6 murid per tim, dengan pembimbing khusus per divisi.' },
-  { n: '03', title: 'Bimbingan rutin', desc: 'Sesi terjadwal online/offline, dokumentasi otomatis ke Drive.' },
-  { n: '04', title: 'Laporan transparan', desc: 'Tiap sesi menghasilkan PDF yang dikirim ke wali via WhatsApp.' },
+const FEATURES: Array<{ icon: LucideIcon; title: string; desc: string; span?: string }> = [
+  { icon: CalendarCheck2, title: 'Jadwal Terintegrasi', desc: 'Sync Google Calendar + Meet otomatis tiap kelas.',  span: 'sm:col-span-2' },
+  { icon: ClipboardCheck, title: 'Tugas & Submission',  desc: 'Coach assign, murid submit dari dashboard.' },
+  { icon: FolderOpen,     title: 'Drive per Tim',       desc: 'Folder otomatis terstruktur per tim.' },
+  { icon: MessagesSquare, title: 'WhatsApp Notif',      desc: 'Reminder sesi & laporan auto terkirim ke wali.' },
+  { icon: FileBarChart2,  title: 'Laporan PDF',         desc: 'Tiap sesi → PDF rapi.',                            span: 'sm:col-span-2' },
+  { icon: BarChart3,      title: 'Rubrik Skor 1–10',    desc: '5 dimensi: disiplin, aktif, komunikasi, etika, paham.' },
 ]
 
-const FEATURES = [
-  { icon: CalendarCheck2, title: 'Jadwal Terintegrasi', desc: 'Sinkron Google Calendar & Meet otomatis.' },
-  { icon: ClipboardCheck, title: 'Tugas & Submission',  desc: 'Pembimbing assign, murid submit dari dashboard.' },
-  { icon: FileBarChart2,  title: 'Laporan Otomatis',    desc: 'PDF tersimpan ke Drive tim, dibagikan ke wali.' },
-  { icon: MessagesSquare, title: 'Notifikasi WhatsApp', desc: 'Pengingat sesi & laporan terkirim otomatis.' },
+const SHOWCASE = [
+  { code: 'BKI · A01', year: '2025', title: 'Bioplastik dari kulit pisang', divs: ['Penelitian', 'Makalah'] },
+  { code: 'BKI · A02', year: '2025', title: 'AI deteksi kualitas air tambak', divs: ['Penelitian', 'Presentasi'] },
+  { code: 'BKI · A03', year: '2024', title: 'Pendeteksi dini stunting balita', divs: ['Makalah'] },
+  { code: 'BKI · A04', year: '2024', title: 'Solar dryer untuk petani kopi', divs: ['Penelitian', 'Presentasi'] },
+  { code: 'BKI · A05', year: '2024', title: 'Aplikasi sampah elektronik daur ulang', divs: ['Presentasi'] },
+  { code: 'BKI · A06', year: '2023', title: 'Pupuk cair limbah sayur pasar', divs: ['Makalah', 'Penelitian'] },
 ]
 
 const STATS = [
@@ -52,6 +80,8 @@ const STATS = [
   { value: '25+',  label: 'Pembimbing' },
   { value: '15+',  label: 'Lomba dimenangkan' },
 ]
+
+/* ─────────────────────────────────────────────────────────────────────── */
 
 export function LandingPage() {
   const navigate = useNavigate()
@@ -66,346 +96,513 @@ export function LandingPage() {
     navigate(path, { replace: true })
   }, [session, profile, onboarded, sessionRestored, user, navigate])
 
-  // Rotate hero background slides.
-  const [slideIdx, setSlideIdx] = useState(0)
-  useEffect(() => {
-    const t = window.setInterval(() => setSlideIdx((i) => (i + 1) % HERO_SLIDES.length), 6000)
-    return () => window.clearInterval(t)
-  }, [])
-
-  const handleRoleClick = (role: UserRole) => {
-    navigate(`/login?role=${role}`)
-  }
-
   return (
-    <div className="min-h-screen bg-white text-text-primary">
-      {/* ── Top nav ────────────────────────────────────── */}
-      <header className="fixed top-0 inset-x-0 z-40 bg-white/0">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur border border-white/20 flex items-center justify-center">
-              <GraduationCap className="h-5 w-5 text-white" strokeWidth={2.5} />
+    <div className="min-h-screen bg-paper-50 text-text-primary">
+      {/* ── Background grid (fixed, parallax-feel) ───────────────────── */}
+      <div aria-hidden className="fixed inset-0 bg-grid-fine bg-grid-sm pointer-events-none" />
+
+      {/* Content sits above the grid */}
+      <div className="relative">
+
+        {/* ── Top nav ────────────────────────────────────────────────── */}
+        <header className="border-b border-paper-200 bg-paper-50/80 backdrop-blur sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 h-14 flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-primary-950 text-white flex items-center justify-center">
+                <GraduationCap className="h-4 w-4" strokeWidth={2.25} />
+              </div>
+              <div className="leading-tight">
+                <p className="font-extrabold text-primary-950 text-sm tracking-tight">BKI</p>
+                <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-text-tertiary">
+                  Bimbingan Karya Ilmiah
+                </p>
+              </div>
+            </Link>
+            <nav className="hidden md:flex items-center gap-7 text-xs font-mono uppercase tracking-wider text-text-secondary">
+              <a href="#disiplin" className="hover:text-primary-950 transition-colors">Disiplin</a>
+              <a href="#metode" className="hover:text-primary-950 transition-colors">Metode</a>
+              <a href="#fitur" className="hover:text-primary-950 transition-colors">Fitur</a>
+              <a href="#arsip" className="hover:text-primary-950 transition-colors">Arsip</a>
+            </nav>
+            <Button
+              onClick={() => navigate('/login')}
+              className="bg-primary-950 hover:bg-primary-900 text-white h-9 px-4 text-xs font-mono uppercase tracking-wider"
+            >
+              Masuk
+              <ArrowRight className="h-3 w-3 ml-1.5" />
+            </Button>
+          </div>
+        </header>
+
+        {/* ── HERO ─────────────────────────────────────────────────────── */}
+        <section className="border-b border-paper-200">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-16 pb-20 lg:pt-24 lg:pb-28 grid lg:grid-cols-12 gap-10 lg:gap-16 items-start">
+            {/* Left: headline + CTA */}
+            <div className="lg:col-span-7 relative">
+              {/* Margin marker — like a journal annotation */}
+              <div className="hidden lg:block absolute -left-12 top-2 h-12 w-px bg-primary-950/30" />
+              <div className="hidden lg:block absolute -left-12 top-2 text-[10px] font-mono uppercase tracking-[0.18em] -rotate-90 origin-top-left translate-y-12 text-primary-950/40 whitespace-nowrap">
+                FOL.&nbsp;01 · 2026
+              </div>
+
+              <div className="inline-flex items-center gap-3 mb-8">
+                <span className="h-px w-10 bg-primary-950" />
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-primary-950">
+                  Est. 2020 · Bimbingan Karya Ilmiah
+                </span>
+              </div>
+
+              <h1 className="font-display text-5xl sm:text-6xl lg:text-[5.5rem] text-primary-950 leading-[0.98] tracking-tight">
+                Dari ide riset,
+                <br />
+                ke panggung{' '}
+                <span className="relative inline-block">
+                  <span className="relative z-10 italic">lomba</span>
+                  <span aria-hidden className="absolute left-0 right-0 bottom-1 h-3 bg-ink-highlighter/80 -z-0" />
+                </span>
+                .
+                <br />
+                <span className="text-text-secondary">Satu platform.</span>
+              </h1>
+
+              <p className="mt-8 text-lg text-text-secondary leading-relaxed max-w-xl">
+                BKI mengelola seluruh siklus bimbingan karya ilmiah — penelitian, makalah,
+                presentasi — dengan jadwal, tugas, laporan, dan komunikasi wali yang
+                terstruktur seperti jurnal riset.
+              </p>
+
+              <div className="mt-10 flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={() => navigate('/login')}
+                  className="bg-primary-950 hover:bg-primary-900 text-white h-12 px-6 font-semibold"
+                >
+                  Mulai bimbingan
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+                <a
+                  href="#disiplin"
+                  className="inline-flex items-center gap-2 h-12 px-5 text-sm font-mono uppercase tracking-wider text-primary-950 hover:bg-paper-100 rounded-md transition-colors"
+                >
+                  Lihat metodologi
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </a>
+              </div>
+
+              {/* Inline mini "data sheet" */}
+              <dl className="mt-12 grid grid-cols-3 gap-6 max-w-md pt-6 border-t border-paper-200">
+                {STATS.slice(0, 3).map((s) => (
+                  <div key={s.label}>
+                    <dt className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary mb-1">
+                      {s.label}
+                    </dt>
+                    <dd className="font-display text-3xl text-primary-950 tabular-nums leading-none">
+                      {s.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             </div>
-            <div className="leading-tight">
-              <p className="font-extrabold text-white tracking-tight">BKI</p>
-              <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-white/70">Bimbingan Karya Ilmiah</p>
+
+            {/* Right: layered specimen card */}
+            <div className="lg:col-span-5 relative">
+              {/* Back card — tilted, looks like archived page */}
+              <div
+                aria-hidden
+                className="absolute inset-0 -rotate-2 bg-paper-100 border border-paper-200 rounded-sm shadow-sm translate-x-3 translate-y-3"
+              />
+              {/* Front card — the specimen sheet */}
+              <div className="relative bg-white border border-paper-200 rounded-sm shadow-lift p-7 sm:p-9">
+                {/* Header strip */}
+                <div className="flex items-center justify-between pb-4 border-b border-paper-200 mb-5">
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary">
+                      Form · 2026/01
+                    </p>
+                    <p className="font-mono text-xs text-primary-950 font-semibold mt-1">
+                      Spesimen Bimbingan
+                    </p>
+                  </div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-text-tertiary text-right">
+                    <p>Kelas BKI</p>
+                    <p>SMA · MA · SMP</p>
+                  </div>
+                </div>
+
+                {/* Field rows */}
+                <SpecimenRow label="Pendekatan" value="Tim 4–6 murid" />
+                <SpecimenRow label="Durasi sesi" value="60–90 menit" />
+                <SpecimenRow label="Media" value="Online · Offline" />
+                <SpecimenRow label="Dokumentasi" value="PDF · Foto · Drive" />
+                <SpecimenRow label="Rubrik" value="5 dimensi, skala 1–10" />
+                <SpecimenRow label="Komunikasi wali" value="WhatsApp · Email" />
+
+                {/* Stamp */}
+                <div className="mt-7 flex items-center justify-between">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-tertiary">
+                    <p>Diverifikasi oleh</p>
+                    <p className="text-primary-950 font-semibold mt-0.5">Tim Pembimbing BKI</p>
+                  </div>
+                  <div className="rotate-[-8deg] border-2 border-primary-950/70 text-primary-950/70 font-mono text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-sm">
+                    Approved
+                  </div>
+                </div>
+              </div>
+
+              {/* Footnote */}
+              <p className="mt-4 text-[10px] font-mono uppercase tracking-wider text-text-tertiary text-right">
+                <sup>★</sup> setiap tim memiliki spesimen unik sesuai divisi
+              </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            className="text-white hover:bg-white/15 hover:text-white text-sm font-medium"
-            onClick={() => navigate('/login')}
-          >
-            Masuk
-          </Button>
-        </div>
-      </header>
+        </section>
 
-      {/* ── HERO ───────────────────────────────────────── */}
-      <section className="relative min-h-screen overflow-hidden flex items-center">
-        {/* Rotating gradient backdrops */}
-        <div className="absolute inset-0">
-          {HERO_SLIDES.map((s, i) => (
-            <div
-              key={i}
-              className={cn(
-                'absolute inset-0 bg-gradient-to-br transition-opacity duration-[1500ms] ease-in-out',
-                s.from, s.via, s.to,
-                slideIdx === i ? 'opacity-100' : 'opacity-0',
-              )}
-            />
-          ))}
-          {/* Darkening overlay for legibility */}
-          <div className={cn('absolute inset-0', HERO_SLIDES[slideIdx].tint)} />
-          {/* Subtle grid texture */}
-          <div
-            className="absolute inset-0 opacity-[0.06]"
-            style={{
-              backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
-              backgroundSize: '32px 32px',
-            }}
-          />
-          {/* Decorative blur orbs */}
-          <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-primary-400/20 blur-3xl" />
-        </div>
-
-        <div className="relative max-w-7xl mx-auto w-full px-6 lg:px-10 py-24 lg:py-32">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur border border-white/20 px-3 py-1 mb-6">
-              <Sparkles className="h-3.5 w-3.5 text-white" />
-              <span className="text-[11px] uppercase tracking-[0.14em] font-semibold text-white">
-                Platform Bimbingan Karya Ilmiah
-              </span>
+        {/* ── Roles strip ──────────────────────────────────────────────── */}
+        <section className="border-b border-paper-200 bg-paper-100/40">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10 lg:py-14">
+            <div className="flex items-baseline justify-between mb-7 flex-wrap gap-3">
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-primary-950 mb-2">
+                  Pilih peranmu
+                </p>
+                <h2 className="font-display text-3xl sm:text-4xl text-primary-950 leading-tight">
+                  Empat pintu masuk, satu sistem.
+                </h2>
+              </div>
+              <p className="text-xs font-mono uppercase tracking-wider text-text-tertiary">
+                4 peran · 1 platform
+              </p>
             </div>
 
-            <h1 className="text-white text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.02] mb-6">
-              Riset, lomba, dan
-              <br />
-              <span className="bg-gradient-to-r from-primary-200 via-white to-primary-100 bg-clip-text text-transparent">
-                bimbingan ilmiah
-              </span>
-              {' '}satu pintu.
-            </h1>
-
-            <p className="text-white/80 text-lg sm:text-xl max-w-2xl leading-relaxed mb-10">
-              Dari penelitian, makalah, hingga presentasi — BKI mengintegrasikan jadwal, tugas, laporan, dan komunikasi wali dalam satu sistem.
-            </p>
-
-            {/* Role buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl">
-              {ROLES.map(({ role, label, subtitle, icon: Icon }) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {ROLES.map(({ role, code, label, subtitle, icon: Icon }) => (
                 <button
                   key={role}
-                  onClick={() => handleRoleClick(role)}
-                  className="group relative overflow-hidden text-left bg-white/[0.08] hover:bg-white/[0.14] backdrop-blur-md border border-white/20 hover:border-white/40 rounded-2xl px-5 py-4 transition-all hover:-translate-y-1 hover:shadow-2xl"
+                  onClick={() => navigate(`/login?role=${role}`)}
+                  className="group relative bg-white border border-paper-200 hover:border-primary-950 rounded-sm p-5 text-left transition-all hover:shadow-lift hover:-translate-y-0.5"
                 >
-                  <Icon className="h-6 w-6 text-white mb-3" strokeWidth={1.75} />
-                  <p className="text-white font-bold text-sm leading-tight mb-0.5">{label}</p>
-                  <p className="text-white/60 text-xs">{subtitle}</p>
-                  <ArrowRight className="absolute bottom-4 right-4 h-4 w-4 text-white/40 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                  <div className="flex items-start justify-between mb-6">
+                    <Icon className="h-6 w-6 text-primary-950" strokeWidth={1.5} />
+                    <span className="text-[10px] font-mono font-bold text-text-tertiary tracking-wider">
+                      [{code}]
+                    </span>
+                  </div>
+                  <p className="font-display text-2xl text-primary-950 leading-tight mb-1">{label}</p>
+                  <p className="text-xs text-text-secondary leading-relaxed">{subtitle}</p>
+                  <ArrowUpRight className="absolute bottom-4 right-4 h-4 w-4 text-text-tertiary group-hover:text-primary-950 transition-colors" />
                 </button>
               ))}
             </div>
+          </div>
+        </section>
 
-            {/* Slide indicator dots */}
-            <div className="mt-12 flex items-center gap-1.5">
-              {HERO_SLIDES.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSlideIdx(i)}
-                  className={cn(
-                    'h-1 rounded-full transition-all',
-                    slideIdx === i ? 'w-8 bg-white' : 'w-1.5 bg-white/30 hover:bg-white/60',
-                  )}
-                  aria-label={`Slide ${i + 1}`}
-                />
+        {/* ── Disiplin ─────────────────────────────────────────────────── */}
+        <section id="disiplin" className="border-b border-paper-200">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20 lg:py-28">
+            <SectionHead
+              eyebrow="Disiplin"
+              title={<>Tiga arah bimbingan,<br/>satu disiplin riset.</>}
+              description="Tiap tim memilih kombinasi yang sesuai kebutuhan dan target lombanya — coach yang mendampingi sudah spesialis di divisi tersebut."
+            />
+
+            <div className="grid lg:grid-cols-3 gap-px bg-paper-200 border border-paper-200 rounded-sm overflow-hidden">
+              {DISCIPLINES.map((d) => (
+                <div key={d.code} className="bg-paper-50 p-7 lg:p-9 relative group">
+                  <div className="flex items-center gap-2 mb-6">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">
+                      {d.code}
+                    </span>
+                    <span className="h-px flex-1 bg-paper-200" />
+                  </div>
+                  <d.icon className="h-7 w-7 text-primary-950 mb-5" strokeWidth={1.5} />
+                  <h3 className="font-display text-3xl text-primary-950 leading-tight mb-3">{d.title}</h3>
+                  <p className="text-sm text-text-secondary leading-relaxed mb-5">{d.description}</p>
+                  <ul className="space-y-1 font-mono text-[11px] uppercase tracking-wider text-text-tertiary">
+                    {d.notes.map((n) => (
+                      <li key={n} className="flex items-center gap-2">
+                        <span className="text-primary-950">›</span>
+                        {n}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ── Stats strip ────────────────────────────────── */}
-      <section className="border-y border-surface-200 bg-surface-50">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid grid-cols-2 lg:grid-cols-4 divide-x divide-surface-200">
-          {STATS.map((s) => (
-            <div key={s.label} className="py-8 lg:py-10 px-4 lg:px-8 text-center">
-              <p className="text-3xl lg:text-4xl font-extrabold tracking-tight text-primary-900 tabular-nums">{s.value}</p>
-              <p className="text-xs lg:text-sm text-text-tertiary font-medium mt-1">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+        {/* ── Metode ───────────────────────────────────────────────────── */}
+        <section id="metode" className="border-b border-paper-200 bg-paper-100/40">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20 lg:py-28">
+            <SectionHead
+              eyebrow="Metode"
+              title="Empat langkah, terdokumentasi."
+              description="Setiap tim melewati alur yang sama — dari pemetaan minat hingga laporan transparan. Tidak ada bagian yang ditebak."
+            />
 
-      {/* ── Yang kita kerjakan ─────────────────────────── */}
-      <Section
-        eyebrow="Apa yang kami kerjakan"
-        title="Tiga pilar bimbingan ilmiah."
-        description="Setiap tim dibimbing menyeluruh — dari ide riset hingga panggung presentasi."
-      >
-        <div className="grid md:grid-cols-3 gap-5">
-          {FOCUS_AREAS.map((f) => (
-            <div
-              key={f.title}
-              className="group relative overflow-hidden rounded-3xl border border-surface-200 bg-white p-7 hover:border-primary-300 hover:shadow-lift transition-all"
-            >
-              <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-primary-50 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-950 text-white mb-5">
-                  <f.icon className="h-5 w-5" strokeWidth={1.75} />
+            <ol className="grid lg:grid-cols-4 gap-px bg-paper-200 border border-paper-200 rounded-sm overflow-hidden">
+              {METHOD_STEPS.map((s, i) => (
+                <li key={s.n} className="bg-paper-50 p-7 lg:p-8 relative">
+                  <div className="flex items-baseline gap-3 mb-4">
+                    <span className="font-display text-6xl text-primary-950 tabular-nums leading-none">
+                      {s.n}
+                    </span>
+                    {i < METHOD_STEPS.length - 1 && (
+                      <span aria-hidden className="hidden lg:flex flex-1 items-center gap-1 mb-2">
+                        <span className="h-px flex-1 border-t border-dashed border-primary-950/30" />
+                        <ArrowRight className="h-3 w-3 text-primary-950/40" />
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-primary-950 mb-1.5">{s.title}</h3>
+                  <p className="text-sm text-text-secondary leading-relaxed">{s.desc}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* ── Fitur (bento grid) ───────────────────────────────────────── */}
+        <section id="fitur" className="border-b border-paper-200">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 py-20 lg:py-28">
+            <SectionHead
+              eyebrow="Fitur"
+              title="Semua urusan bimbingan, satu dashboard."
+              description="Modul yang sudah saling terhubung — sehingga coach tidak perlu pindah aplikasi untuk catat sesi, kirim laporan, atau atur jadwal."
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {FEATURES.map((f) => (
+                <div
+                  key={f.title}
+                  className={cn(
+                    'group bg-paper-50 border border-paper-200 rounded-sm p-6 hover:bg-white hover:border-primary-950 transition-all relative overflow-hidden',
+                    f.span,
+                  )}
+                >
+                  {/* Subtle hover grid */}
+                  <div className="absolute inset-0 bg-grid-fine bg-grid-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative">
+                    <f.icon className="h-6 w-6 text-primary-950 mb-5" strokeWidth={1.5} />
+                    <h3 className="font-display text-2xl text-primary-950 leading-tight mb-2">{f.title}</h3>
+                    <p className="text-sm text-text-secondary leading-relaxed">{f.desc}</p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold text-text-primary mb-1.5">{f.title}</h3>
-                <p className="text-sm text-text-secondary leading-relaxed">{f.desc}</p>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Section>
+          </div>
+        </section>
 
-      {/* ── Tampilan dokumentasi ───────────────────────── */}
-      <Section
-        eyebrow="Tampilan dokumentasi"
-        title="Setiap sesi terdokumentasi."
-        description="Foto, catatan, dan PDF laporan otomatis tersimpan rapi per tim."
-        className="bg-surface-50"
-      >
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[0,1,2,3,4,5,6,7].map((i) => (
-            <div
-              key={i}
-              className={cn(
-                'aspect-[4/3] rounded-2xl border border-surface-200 overflow-hidden relative',
-                'bg-gradient-to-br',
-                i % 4 === 0 && 'from-primary-100 to-primary-300',
-                i % 4 === 1 && 'from-accent-teal/30 to-primary-200',
-                i % 4 === 2 && 'from-accent-purple/30 to-primary-200',
-                i % 4 === 3 && 'from-accent-amber/30 to-primary-200',
-                i === 0 && 'md:col-span-2 md:row-span-2 aspect-square md:aspect-auto',
-              )}
-            >
-              <div className="absolute inset-0 flex items-end p-4">
-                <div className="text-white/90">
-                  <p className="text-[10px] uppercase tracking-wider font-bold">Sesi #{i + 1}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── Konsep bimbingan ───────────────────────────── */}
-      <Section
-        eyebrow="Konsep bimbingan"
-        title="Empat langkah, dari minat ke kemenangan."
-        description="Pendekatan yang sama setiap tim — terstruktur, terukur, terdokumentasi."
-      >
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {CONCEPT_STEPS.map((s, i) => (
-            <div key={s.n} className="relative">
-              <div className="flex items-baseline gap-3 mb-3">
-                <span className="text-5xl font-extrabold text-primary-200 tabular-nums tracking-tighter">{s.n}</span>
-                {i < CONCEPT_STEPS.length - 1 && (
-                  <span className="hidden lg:block h-px flex-1 bg-gradient-to-r from-primary-200 to-transparent translate-y-3" />
-                )}
-              </div>
-              <h3 className="text-base font-bold text-text-primary mb-1.5">{s.title}</h3>
-              <p className="text-sm text-text-secondary leading-relaxed">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── Tim yang sudah dibimbing ───────────────────── */}
-      <Section
-        eyebrow="Tim yang sudah dibimbing"
-        title="Riset nyata, hasil nyata."
-        description="Kumpulan tim yang sudah pernah dibimbing oleh BKI."
-        className="bg-primary-950 text-white"
-        eyebrowClass="text-primary-200"
-        titleClass="text-white"
-        descClass="text-white/70"
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6 lg:-mx-10 lg:px-10 scrollbar-thin">
-          {[
-            { code: 'BKI-A01', title: 'Bioplastik dari kulit pisang', divs: ['Penelitian', 'Makalah'] },
-            { code: 'BKI-A02', title: 'AI deteksi kualitas air tambak', divs: ['Penelitian', 'Presentasi'] },
-            { code: 'BKI-A03', title: 'Pendeteksi dini stunting balita', divs: ['Makalah'] },
-            { code: 'BKI-A04', title: 'Solar dryer untuk petani kopi', divs: ['Penelitian', 'Presentasi'] },
-            { code: 'BKI-A05', title: 'Aplikasi sampah elektronik daur ulang', divs: ['Presentasi'] },
-            { code: 'BKI-A06', title: 'Pupuk cair limbah sayur pasar', divs: ['Makalah', 'Penelitian'] },
-          ].map((t) => (
-            <div
-              key={t.code}
-              className="flex-shrink-0 w-72 rounded-2xl bg-white/[0.06] backdrop-blur border border-white/[0.12] p-5 hover:bg-white/[0.10] transition-colors"
-            >
-              <span className="inline-block text-[10px] font-mono font-bold tracking-wider text-primary-200 bg-white/10 rounded px-2 py-0.5 mb-3">
-                {t.code}
-              </span>
-              <h3 className="font-bold text-white leading-snug mb-3">{t.title}</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {t.divs.map((d) => (
-                  <span key={d} className="text-[10px] uppercase tracking-wider font-semibold text-white/70 border border-white/20 rounded-full px-2 py-0.5">
-                    {d}
+        {/* ── Arsip tim ────────────────────────────────────────────────── */}
+        <section id="arsip" className="border-b border-paper-200 bg-primary-950 text-white relative overflow-hidden">
+          <div aria-hidden className="absolute inset-0 bg-grid-fine-inv bg-grid-md" />
+          <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-20 lg:py-28">
+            <div className="flex items-baseline justify-between mb-12 flex-wrap gap-3">
+              <div>
+                <div className="inline-flex items-center gap-3 mb-5">
+                  <span className="h-px w-10 bg-white/50" />
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-white/70">
+                    Arsip
                   </span>
-                ))}
+                </div>
+                <h2 className="font-display text-4xl sm:text-5xl leading-tight max-w-2xl">
+                  Tim yang sudah dibimbing.
+                </h2>
               </div>
+              <p className="text-xs font-mono uppercase tracking-wider text-white/50">
+                Sample · {SHOWCASE.length} tim
+              </p>
             </div>
-          ))}
-        </div>
-      </Section>
 
-      {/* ── Features ────────────────────────────────────── */}
-      <Section
-        eyebrow="Fitur platform"
-        title="Semua urusan bimbingan, satu dashboard."
-      >
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-2xl border border-surface-200 bg-white p-5 hover:border-primary-300 hover:shadow-soft transition-all">
-              <f.icon className="h-5 w-5 text-primary-600 mb-3" strokeWidth={1.75} />
-              <p className="font-bold text-text-primary mb-1">{f.title}</p>
-              <p className="text-xs text-text-secondary leading-relaxed">{f.desc}</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {SHOWCASE.map((t) => (
+                <div
+                  key={t.code}
+                  className="border border-white/15 hover:border-white/40 p-6 transition-all hover:bg-white/[0.04]"
+                >
+                  <div className="flex items-center justify-between mb-5">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/70">
+                      {t.code}
+                    </span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-white/40">
+                      {t.year}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-2xl leading-tight mb-5 text-white">
+                    {t.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5 pt-4 border-t border-white/10">
+                    {t.divs.map((d) => (
+                      <span
+                        key={d}
+                        className="text-[10px] font-mono uppercase tracking-wider text-white/70 border border-white/20 px-2 py-0.5"
+                      >
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Section>
 
-      {/* ── Final CTA ──────────────────────────────────── */}
-      <section className="bg-gradient-to-br from-primary-950 via-primary-900 to-primary-800 text-white">
-        <div className="max-w-5xl mx-auto px-6 lg:px-10 py-20 text-center">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-5">
-            Siap mulai bimbingan?
-          </h2>
-          <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">
-            Pilih peranmu — atau hubungi admin untuk dibuatkan akun.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button onClick={() => navigate('/login')} className="bg-white text-primary-950 hover:bg-white/90 h-12 px-6 font-bold">
-              Masuk Sekarang
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-            <Button onClick={() => navigate('/register')} variant="outline" className="border-white/30 text-white hover:bg-white/10 hover:text-white h-12 px-6 font-bold bg-transparent">
-              Daftar Gratis
-            </Button>
+            <div className="mt-12 flex items-center justify-center gap-2 text-xs font-mono uppercase tracking-wider text-white/50">
+              <span className="h-px w-12 bg-white/20" />
+              <span>Arsip terbuka untuk wali murid pada tim terdaftar</span>
+              <span className="h-px w-12 bg-white/20" />
+            </div>
           </div>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-white/60">
-            {['Akun langsung pakai', 'WhatsApp terintegrasi', 'Drive otomatis'].map((t) => (
-              <span key={t} className="inline-flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-primary-300" />
-                {t}
+        </section>
+
+        {/* ── Final CTA ────────────────────────────────────────────────── */}
+        <section className="border-b border-paper-200">
+          <div className="max-w-5xl mx-auto px-6 lg:px-10 py-20 lg:py-28 text-center">
+            <div className="inline-flex items-center gap-3 mb-6">
+              <span className="h-px w-10 bg-primary-950" />
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-primary-950">
+                Mulai
               </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Footer ──────────────────────────────────────── */}
-      <footer className="bg-primary-950 text-white/60 border-t border-white/[0.08]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center">
-              <GraduationCap className="h-4 w-4 text-white" strokeWidth={2.5} />
+              <span className="h-px w-10 bg-primary-950" />
             </div>
-            <span className="text-sm">© {new Date().getFullYear()} BKI — Bimbingan Karya Ilmiah</span>
+            <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl text-primary-950 leading-[1.05] mb-6">
+              Bimbing satu generasi peneliti{' '}
+              <span className="italic">Indonesia</span>.
+            </h2>
+            <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl mx-auto mb-10">
+              Mulai sekarang — atau hubungi admin sekolahmu untuk dibuatkan akun.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button
+                onClick={() => navigate('/login')}
+                className="bg-primary-950 hover:bg-primary-900 text-white h-12 px-6 font-semibold"
+              >
+                Masuk Sekarang
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+              <Button
+                onClick={() => navigate('/register')}
+                variant="outline"
+                className="h-12 px-6 font-semibold border-primary-950 text-primary-950 hover:bg-primary-950 hover:text-white"
+              >
+                Daftar Gratis
+              </Button>
+            </div>
           </div>
-          <p className="text-xs">Dibuat dengan ❤︎ untuk pelajar Indonesia</p>
-        </div>
-      </footer>
+        </section>
+
+        {/* ── Footer ──────────────────────────────────────────────────── */}
+        <footer className="bg-paper-100 border-t border-paper-200">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 py-12">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+              <div>
+                <Link to="/" className="flex items-center gap-2.5 mb-4">
+                  <div className="h-8 w-8 rounded-lg bg-primary-950 text-white flex items-center justify-center">
+                    <GraduationCap className="h-4 w-4" strokeWidth={2.25} />
+                  </div>
+                  <div className="leading-tight">
+                    <p className="font-extrabold text-primary-950 text-sm tracking-tight">BKI</p>
+                    <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-text-tertiary">
+                      Bimbingan Karya Ilmiah
+                    </p>
+                  </div>
+                </Link>
+                <p className="text-xs text-text-tertiary leading-relaxed">
+                  Platform bimbingan karya ilmiah terstruktur untuk murid Indonesia.
+                </p>
+              </div>
+
+              <FooterCol title="Produk" items={[
+                { label: 'Disiplin', href: '#disiplin' },
+                { label: 'Metode',   href: '#metode' },
+                { label: 'Fitur',    href: '#fitur' },
+                { label: 'Arsip',    href: '#arsip' },
+              ]} />
+
+              <FooterCol title="Akun" items={[
+                { label: 'Masuk',           href: '/login',    isRoute: true },
+                { label: 'Daftar',          href: '/register', isRoute: true },
+              ]} />
+
+              <FooterCol title="Legal" items={[
+                { label: 'Kebijakan Privasi', href: '/privacy', isRoute: true },
+                { label: 'Syarat & Ketentuan', href: '/terms',  isRoute: true },
+              ]} />
+            </div>
+
+            <div className="pt-6 border-t border-paper-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono text-text-tertiary">
+              <p>© {new Date().getFullYear()} BKI — All rights reserved.</p>
+              <p className="uppercase tracking-wider">Made for Indonesian students · {new Date().getFullYear()}</p>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   )
 }
 
-interface SectionProps {
-  eyebrow: string
-  title: string
-  description?: string
-  children: React.ReactNode
-  className?: string
-  eyebrowClass?: string
-  titleClass?: string
-  descClass?: string
-}
+/* ─────────────────────────────────────────────────────────────────────── */
 
-function Section({ eyebrow, title, description, children, className, eyebrowClass, titleClass, descClass }: SectionProps) {
+interface SectionHeadProps {
+  eyebrow: string
+  title: React.ReactNode
+  description?: string
+}
+function SectionHead({ eyebrow, title, description }: SectionHeadProps) {
   return (
-    <section className={cn('py-20', className)}>
-      <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="max-w-3xl mb-12">
-          <p className={cn('text-[11px] uppercase tracking-[0.18em] font-bold text-primary-600 mb-3', eyebrowClass)}>
-            {eyebrow}
-          </p>
-          <h2 className={cn('text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-text-primary leading-[1.05] mb-4', titleClass)}>
-            {title}
-          </h2>
-          {description && (
-            <p className={cn('text-base sm:text-lg text-text-secondary leading-relaxed', descClass)}>
-              {description}
-            </p>
-          )}
-        </div>
-        {children}
+    <div className="max-w-3xl mb-14">
+      <div className="inline-flex items-center gap-3 mb-5">
+        <span className="h-px w-10 bg-primary-950" />
+        <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-semibold text-primary-950">
+          {eyebrow}
+        </span>
       </div>
-    </section>
+      <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl text-primary-950 leading-[1.02] mb-5">
+        {title}
+      </h2>
+      {description && (
+        <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
+          {description}
+        </p>
+      )}
+    </div>
   )
 }
+
+function SpecimenRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline gap-3 py-2 border-b border-dashed border-paper-200 last:border-b-0">
+      <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary w-32 flex-shrink-0">
+        {label}
+      </span>
+      <span className="text-sm text-primary-950 font-medium">{value}</span>
+    </div>
+  )
+}
+
+interface FooterColProps {
+  title: string
+  items: Array<{ label: string; href: string; isRoute?: boolean }>
+}
+function FooterCol({ title, items }: FooterColProps) {
+  return (
+    <div>
+      <p className="text-[10px] font-mono uppercase tracking-[0.18em] font-bold text-primary-950 mb-4">
+        {title}
+      </p>
+      <ul className="space-y-2">
+        {items.map((item) => (
+          <li key={item.label}>
+            {item.isRoute ? (
+              <Link to={item.href} className="text-xs text-text-secondary hover:text-primary-950 transition-colors">
+                {item.label}
+              </Link>
+            ) : (
+              <a href={item.href} className="text-xs text-text-secondary hover:text-primary-950 transition-colors">
+                {item.label}
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
