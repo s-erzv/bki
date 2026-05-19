@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { CalendarPlus, MapPin, Video, Users, BookOpen, FilePlus2, ExternalLink } from 'lucide-react'
+import { CalendarPlus, MapPin, Video, Users, BookOpen, FilePlus2, ExternalLink, Pencil, Trash2 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { SetKelasForm } from '@/components/shared/SetKelasForm'
 import { Card, CardContent } from '@/components/ui/card'
@@ -7,8 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/ui/empty-state'
-import { useCoachClasses } from '@/hooks/useClasses'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { useCoachClasses, useDeleteClass, type ClassWithTeams } from '@/hooks/useClasses'
 import { useNavigate } from 'react-router-dom'
+import { toast } from '@/components/ui/use-toast'
 import { cn, formatWIB } from '@/lib/utils'
 
 type Filter = 'upcoming' | 'past' | 'all'
@@ -16,8 +20,26 @@ type Filter = 'upcoming' | 'past' | 'all'
 export function CoachClasses() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [editingClass, setEditingClass] = useState<ClassWithTeams | null>(null)
+  const [deletingClass, setDeletingClass] = useState<ClassWithTeams | null>(null)
   const [filter, setFilter] = useState<Filter>('upcoming')
   const { data: classes = [], isLoading } = useCoachClasses()
+  const deleteClass = useDeleteClass()
+
+  const handleDelete = async () => {
+    if (!deletingClass) return
+    try {
+      await deleteClass.mutateAsync(deletingClass.id)
+      toast({ title: 'Kelas dihapus' })
+      setDeletingClass(null)
+    } catch (err) {
+      toast({
+        title: 'Gagal hapus kelas',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      })
+    }
+  }
 
   const now = Date.now()
   const filtered = useMemo(() => {
@@ -174,6 +196,22 @@ export function CoachClasses() {
                         >
                           <FilePlus2 className="h-3.5 w-3.5 mr-1.5" /> Buat Laporan
                         </Button>
+                        <div className="flex sm:justify-end gap-1 pt-1 sm:pt-2 sm:border-t sm:border-surface-100">
+                          <button
+                            onClick={() => setEditingClass(c)}
+                            className="flex-1 sm:flex-none h-8 px-2 inline-flex items-center justify-center rounded-md text-xs font-semibold text-text-secondary hover:text-primary-700 hover:bg-primary-50 transition-colors gap-1"
+                            title="Edit kelas"
+                          >
+                            <Pencil className="h-3 w-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => setDeletingClass(c)}
+                            className="flex-1 sm:flex-none h-8 px-2 inline-flex items-center justify-center rounded-md text-xs font-semibold text-text-secondary hover:text-accent-red hover:bg-red-50 transition-colors gap-1"
+                            title="Hapus kelas"
+                          >
+                            <Trash2 className="h-3 w-3" /> Hapus
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -185,6 +223,38 @@ export function CoachClasses() {
       </div>
 
       <SetKelasForm open={open} onOpenChange={setOpen} />
+      <SetKelasForm
+        open={!!editingClass}
+        onOpenChange={(o) => { if (!o) setEditingClass(null) }}
+        editClass={editingClass}
+      />
+
+      <Dialog open={!!deletingClass} onOpenChange={(o) => { if (!o) setDeletingClass(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus kelas ini?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              Kelas <span className="font-semibold text-text-primary">"{deletingClass?.topic ?? 'Pertemuan'}"</span> pada{' '}
+              {deletingClass && formatWIB(deletingClass.scheduled_at, 'EEEE, d MMM yyyy · HH:mm')} WIB bakal dihapus permanen.
+              Sesi laporan yang sudah terkait akan dilepas (tidak terhapus). Event di Google Calendar coach <strong>tidak otomatis terhapus</strong> — perlu hapus manual di Calendar.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setDeletingClass(null)} disabled={deleteClass.isPending}>
+                Batal
+              </Button>
+              <Button
+                onClick={handleDelete}
+                disabled={deleteClass.isPending}
+                className="bg-accent-red hover:bg-accent-red/90 text-white"
+              >
+                {deleteClass.isPending ? 'Menghapus…' : 'Hapus permanen'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

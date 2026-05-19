@@ -255,9 +255,14 @@ export function AuthPage({ mode }: AuthPageProps) {
                   <Button type="submit" className="w-full h-11" disabled={busy}>
                     {busy ? 'Memproses...' : 'Masuk'}
                   </Button>
-                  <button type="button" onClick={() => setMethod(null)} className="w-full text-xs text-text-tertiary hover:text-text-primary transition-colors">
-                    ← Pilih cara lain
-                  </button>
+                  <div className="flex items-center justify-between text-xs">
+                    <button type="button" onClick={() => setMethod(null)} className="text-text-tertiary hover:text-text-primary transition-colors">
+                      ← Pilih cara lain
+                    </button>
+                    <Link to="/forgot-password" className="text-primary-600 font-semibold hover:underline">
+                      Lupa password?
+                    </Link>
+                  </div>
                 </form>
               )
             )}

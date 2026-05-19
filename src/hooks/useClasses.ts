@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import type { Database, Class } from '@/types/database'
 
 type ClassInsert = Database['public']['Tables']['classes']['Insert']
+type ClassUpdate = Database['public']['Tables']['classes']['Update']
 
 export interface ClassWithTeams extends Class {
   class_teams: Array<{
@@ -112,6 +113,55 @@ export function useCreateClass() {
       return { cls, gmeetWarning }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['classes'] }),
+  })
+}
+
+export function useUpdateClass() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      classId, updates, teamIds,
+    }: {
+      classId: string
+      updates: ClassUpdate
+      teamIds?: string[]   // if provided, replace class_teams
+    }) => {
+      const { error } = await supabase.from('classes').update(updates).eq('id', classId)
+      if (error) throw error
+
+      // Replace-all strategy for class_teams when teamIds passed.
+      if (teamIds) {
+        const { error: delErr } = await supabase.from('class_teams').delete().eq('class_id', classId)
+        if (delErr) throw delErr
+        if (teamIds.length > 0) {
+          const { error: insErr } = await supabase
+            .from('class_teams')
+            .insert(teamIds.map((team_id) => ({ class_id: classId, team_id })))
+          if (insErr) throw insErr
+        }
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['classes'] }),
+  })
+}
+
+export function useDeleteClass() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (classId: string) => {
+      // class_teams + sessions reference classes; clean up first since there's
+      // no ON DELETE CASCADE on these FKs.
+      const { error: ctErr } = await supabase.from('class_teams').delete().eq('class_id', classId)
+      if (ctErr) throw ctErr
+      // Unlink sessions (class_id is nullable on sessions, just clear it).
+      await supabase.from('sessions').update({ class_id: null }).eq('class_id', classId)
+      const { error } = await supabase.from('classes').delete().eq('id', classId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['classes'] })
+      qc.invalidateQueries({ queryKey: ['sessions'] })
+    },
   })
 }
 

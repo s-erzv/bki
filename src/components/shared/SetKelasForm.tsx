@@ -14,8 +14,9 @@ import {
 import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { useCoachTeams } from '@/hooks/useTeam'
-import { useCreateClass } from '@/hooks/useClasses'
+import { useCreateClass, useUpdateClass, type ClassWithTeams } from '@/hooks/useClasses'
 import { toast } from '@/components/ui/use-toast'
+import { formatWIB } from '@/lib/utils'
 
 const schema = z.object({
   date: z.string().min(1, 'Tanggal wajib diisi'),
@@ -34,11 +35,15 @@ interface SetKelasFormProps {
   onOpenChange: (open: boolean) => void
   /** Optional default date when opened from calendar cell click. */
   defaultDate?: string  // yyyy-MM-dd
+  /** When provided, the form opens in EDIT mode pre-populated from this class. */
+  editClass?: ClassWithTeams | null
 }
 
-export function SetKelasForm({ open, onOpenChange, defaultDate }: SetKelasFormProps) {
+export function SetKelasForm({ open, onOpenChange, defaultDate, editClass }: SetKelasFormProps) {
   const { data: teams = [] } = useCoachTeams()
   const createClass = useCreateClass()
+  const updateClass = useUpdateClass()
+  const isEdit = !!editClass
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<SetKelasFormData>({
     resolver: zodResolver(schema),
@@ -47,9 +52,24 @@ export function SetKelasForm({ open, onOpenChange, defaultDate }: SetKelasFormPr
   const media = watch('media')
   const selectedTeamIds = watch('teamIds') ?? []
 
+  // Hydrate form when opening (both create with defaultDate and edit with existing class)
   useEffect(() => {
-    if (open && defaultDate) setValue('date', defaultDate)
-  }, [open, defaultDate, setValue])
+    if (!open) return
+    if (editClass) {
+      reset({
+        date: formatWIB(editClass.scheduled_at, 'yyyy-MM-dd'),
+        time: formatWIB(editClass.scheduled_at, 'HH:mm'),
+        duration_mins: editClass.duration_mins ?? 90,
+        media: editClass.media,
+        location: editClass.location ?? '',
+        maps_url: editClass.maps_url ?? '',
+        topic: editClass.topic ?? '',
+        teamIds: (editClass.class_teams ?? []).map((ct) => ct.team_id),
+      })
+    } else if (defaultDate) {
+      setValue('date', defaultDate)
+    }
+  }, [open, editClass, defaultDate, reset, setValue])
 
   const toggleTeam = (id: string) => {
     setValue(
@@ -62,41 +82,53 @@ export function SetKelasForm({ open, onOpenChange, defaultDate }: SetKelasFormPr
   const onSubmit = async (data: SetKelasFormData) => {
     try {
       const scheduledAt = new Date(`${data.date}T${data.time}:00+07:00`).toISOString()
-      const { gmeetWarning } = await createClass.mutateAsync({
-        classData: {
-          scheduled_at: scheduledAt,
-          duration_mins: data.duration_mins,
-          media: data.media,
-          location: data.location || null,
-          maps_url: data.maps_url || null,
-          topic: data.topic,
-        },
-        teamIds: data.teamIds,
-      })
-      if (gmeetWarning) {
-        toast({
-          title: 'Kelas tersimpan, tapi Meet link gagal dibuat',
-          description: gmeetWarning,
-          variant: 'destructive',
-        })
-      } else {
-        toast({
-          title: 'Kelas berhasil dijadwalkan',
-          description: data.media === 'online' ? 'Link Google Meet dan event Calendar otomatis dibuat.' : undefined,
-        })
+      const classData = {
+        scheduled_at: scheduledAt,
+        duration_mins: data.duration_mins,
+        media: data.media,
+        location: data.location || null,
+        maps_url: data.maps_url || null,
+        topic: data.topic,
       }
-      reset()
+
+      if (isEdit && editClass) {
+        await updateClass.mutateAsync({
+          classId: editClass.id,
+          updates: classData,
+          teamIds: data.teamIds,
+        })
+        toast({ title: 'Kelas berhasil diupdate' })
+      } else {
+        const { gmeetWarning } = await createClass.mutateAsync({
+          classData,
+          teamIds: data.teamIds,
+        })
+        if (gmeetWarning) {
+          toast({
+            title: 'Kelas tersimpan, tapi Meet link gagal dibuat',
+            description: gmeetWarning,
+            variant: 'destructive',
+          })
+        } else {
+          toast({
+            title: 'Kelas berhasil dijadwalkan',
+            description: data.media === 'online' ? 'Link Google Meet dan event Calendar otomatis dibuat.' : undefined,
+          })
+        }
+      }
       onOpenChange(false)
     } catch (err) {
-      toast({ title: 'Gagal menjadwalkan', description: errMsg(err), variant: 'destructive' })
+      toast({ title: 'Gagal menyimpan', description: errMsg(err), variant: 'destructive' })
     }
   }
+
+  const isPending = createClass.isPending || updateClass.isPending
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Jadwalkan Kelas Baru</SheetTitle>
+          <SheetTitle>{isEdit ? 'Edit Kelas' : 'Jadwalkan Kelas Baru'}</SheetTitle>
           <p className="text-xs text-text-tertiary mt-1">
             Murid otomatis dapat WA reminder H-1 dan event di kalender mereka.
           </p>
@@ -213,8 +245,8 @@ export function SetKelasForm({ open, onOpenChange, defaultDate }: SetKelasFormPr
         </SheetBody>
         <SheetFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button type="submit" form="kelas-form" disabled={createClass.isPending}>
-            {createClass.isPending ? 'Menyimpan…' : 'Jadwalkan Kelas'}
+          <Button type="submit" form="kelas-form" disabled={isPending}>
+            {isPending ? 'Menyimpan…' : (isEdit ? 'Simpan Perubahan' : 'Jadwalkan Kelas')}
           </Button>
         </SheetFooter>
       </SheetContent>
