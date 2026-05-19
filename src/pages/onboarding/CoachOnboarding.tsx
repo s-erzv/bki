@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -37,8 +37,13 @@ type FormData = z.infer<typeof schema>
 
 export function CoachOnboarding() {
   const navigate = useNavigate()
-  const { user, profile, setProfile, setRoleId, setOnboarded } = useAuthStore()
+  const { user, profile, onboarded, setProfile, setRoleId, setOnboarded } = useAuthStore()
   const [skills, setSkills] = useState<string[]>([])
+
+  // Already finished onboarding (phone set + coach row exists) → skip the form.
+  useEffect(() => {
+    if (onboarded) navigate('/coach', { replace: true })
+  }, [onboarded, navigate])
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),

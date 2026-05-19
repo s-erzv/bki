@@ -29,7 +29,12 @@ interface StudentSearchResult {
 
 export function ParentOnboarding() {
   const navigate = useNavigate()
-  const { user, profile, setProfile, setRoleId, setOnboarded } = useAuthStore()
+  const { user, profile, onboarded, setProfile, setRoleId, setOnboarded } = useAuthStore()
+
+  // Already finished onboarding → skip the form.
+  useEffect(() => {
+    if (onboarded) navigate('/parent', { replace: true })
+  }, [onboarded, navigate])
 
   const [studentSearch, setStudentSearch] = useState('')
   const [results, setResults] = useState<StudentSearchResult[]>([])

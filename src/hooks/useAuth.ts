@@ -35,7 +35,7 @@ export function useAuthListener() {
 
     let mounted = true
 
-    async function hydrate(userId: string, providerToken?: string | null) {
+    async function hydrate(userId: string, session?: { provider_token?: string | null; provider_refresh_token?: string | null } | null) {
       try {
         const profile = await fetchProfile(userId)
         if (!mounted) return
@@ -47,9 +47,16 @@ export function useAuthListener() {
           const roleId = await fetchRoleRowId(profile.role, profile.id)
           if (!mounted) return
           setRoleId(roleId)
-          setOnboarded(Boolean(roleId) || profile.role === 'admin')
-          if (providerToken) {
-            await saveOauthToken(profile.id, providerToken)
+          // Onboarded = admin OR (has role row AND has filled phone).
+          // Role row alone is not enough — handle_new_user trigger creates empty
+          // role rows at signup, so we use phone (required in every onboarding
+          // form) as the real "user finished onboarding" marker.
+          setOnboarded(
+            profile.role === 'admin' ||
+            (Boolean(roleId) && Boolean(profile.phone))
+          )
+          if (session?.provider_token) {
+            await saveOauthToken(profile.id, session.provider_token, session.provider_refresh_token ?? null)
           }
         }
       } catch (err) {
@@ -90,7 +97,7 @@ export function useAuthListener() {
           setLoading(false)
         }
       } else if (event === 'SIGNED_IN' && session) {
-        queueMicrotask(() => { void hydrate(session.user.id, session.provider_token) })
+        queueMicrotask(() => { void hydrate(session.user.id, session) })
       } else if (event === 'SIGNED_OUT') {
         clear()
       } else if (event === 'USER_UPDATED' && session) {
@@ -138,11 +145,66 @@ async function fetchRoleRowId(role: UserRole, profileId: string): Promise<string
   return (data as { id: string } | null)?.id ?? null
 }
 
-async function saveOauthToken(profileId: string, accessToken: string) {
-  await supabase.from('oauth_tokens').upsert(
-    { profile_id: profileId, provider: 'google', scope_level: 'basic', access_token: accessToken },
-    { onConflict: 'profile_id' },
-  )
+/**
+ * Persist the user's Google token. Called after every sign-in event.
+ *
+ * Scope detection: when the user goes through the "upgrade" OAuth flow
+ * (useGoogleDriveAccess.connect), we stash a flag in localStorage before
+ * redirecting. After callback, we read the flag here to decide whether to
+ * save scope_level='drive_calendar' or 'basic'. The flag is cleared once read.
+ *
+ * Critical invariant: **never downgrade scope**. If the DB already has a
+ * drive_calendar token (with its valid refresh_token), a subsequent plain
+ * Google login must NOT overwrite scope_level back to 'basic' — that would
+ * make every Drive/Calendar API call fail until the user manually reconnects.
+ */
+async function saveOauthToken(profileId: string, accessToken: string, refreshToken: string | null) {
+  const pendingScope = localStorage.getItem('bki:requested-scope')
+  const isUpgradeFlow = pendingScope === 'drive_calendar'
+  if (pendingScope) localStorage.removeItem('bki:requested-scope')
+
+  // Access tokens live ~1h. Set expires_at conservatively (55min) so the
+  // refresh helper kicks in slightly before actual expiry.
+  const expiresAt = new Date(Date.now() + 55 * 60 * 1000).toISOString()
+
+  // Upgrade flow: user just granted Drive/Calendar — overwrite everything.
+  if (isUpgradeFlow) {
+    const row = {
+      profile_id: profileId,
+      provider: 'google',
+      scope_level: 'drive_calendar' as const,
+      access_token: accessToken,
+      expires_at: expiresAt,
+      ...(refreshToken ? { refresh_token: refreshToken } : {}),
+    }
+    const { error } = await supabase.from('oauth_tokens').upsert(row, { onConflict: 'profile_id' })
+    if (error) console.error('[auth] saveOauthToken upgrade', error)
+    return
+  }
+
+  // Plain login: check existing scope before touching anything.
+  const { data: existing } = await supabase
+    .from('oauth_tokens')
+    .select('scope_level')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  // Already drive_calendar → DO NOT touch. The basic-scope access_token we
+  // just got from Google can't talk to Drive/Calendar, and our refresh_token
+  // still has the upgraded scope. Edge functions will refresh as needed.
+  if (existing?.scope_level === 'drive_calendar') return
+
+  // Otherwise: first-time login or still on basic — save as basic.
+  const row = {
+    profile_id: profileId,
+    provider: 'google',
+    scope_level: 'basic' as const,
+    access_token: accessToken,
+    expires_at: expiresAt,
+    ...(refreshToken ? { refresh_token: refreshToken } : {}),
+  }
+  const { error } = await supabase.from('oauth_tokens').upsert(row, { onConflict: 'profile_id' })
+  if (error) console.error('[auth] saveOauthToken basic', error)
 }
 
 /* ── Sign in / up / out ─────────────────────────────────── */
