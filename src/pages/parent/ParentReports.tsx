@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ExternalLink, FileText, Heart } from 'lucide-react'
+import { ExternalLink, FileText, Heart, FolderOpen } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -60,6 +60,24 @@ export function ParentReports() {
           </Card>
         ) : (
           <>
+            {/* Drive folder shortcut — first session's team folder applies to all sessions in this team */}
+            {(() => {
+              const folder = sessions[0]?.teams?.drive_links?.find((d) => d.link_type === 'team_report')
+              if (!folder) return null
+              return (
+                <a
+                  href={folder.folder_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50/40 px-4 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50 hover:border-primary-300 transition-colors"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  {folder.folder_name ?? 'Folder Drive tim'}
+                  <ExternalLink className="h-3 w-3 ml-1 opacity-60" />
+                </a>
+              )
+            })()}
+
             <p className="text-sm text-text-secondary">{sessions.length} sesi tercatat</p>
 
             {isLoading ? (

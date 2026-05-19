@@ -8,7 +8,12 @@ type SessionUpdate = Database['public']['Tables']['sessions']['Update']
 type SessionStudentReportInsert = Database['public']['Tables']['session_student_reports']['Insert']
 
 export interface SessionWithDetails extends Session {
-  teams: { id: string; team_code: string; research_title: string | null } | null
+  teams: {
+    id: string
+    team_code: string
+    research_title: string | null
+    drive_links: Array<{ folder_url: string; folder_name: string | null; link_type: string }>
+  } | null
   session_student_reports: SessionStudentReport[]
   session_docs: Array<{ id: string; photo_url: string; sort_order: number }>
 }
@@ -41,7 +46,7 @@ export function useCoachSessions() {
         .from('sessions')
         .select(`
           *,
-          teams(id, team_code, research_title),
+          teams(id, team_code, research_title, drive_links(folder_url, folder_name, link_type)),
           session_student_reports(*),
           session_docs(id, photo_url, sort_order)
         `)
@@ -64,7 +69,7 @@ export function useStudentSessions(teamId: string | null | undefined) {
         .from('sessions')
         .select(`
           *,
-          teams(id, team_code, research_title),
+          teams(id, team_code, research_title, drive_links(folder_url, folder_name, link_type)),
           session_student_reports(*),
           session_docs(id, photo_url, sort_order)
         `)
@@ -90,7 +95,7 @@ export function useSessionDetail(sessionId: string | null | undefined) {
         .from('sessions')
         .select(`
           *,
-          teams(id, team_code, research_title),
+          teams(id, team_code, research_title, drive_links(folder_url, folder_name, link_type)),
           session_student_reports(*),
           session_docs(id, photo_url, sort_order)
         `)

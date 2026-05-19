@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import {
-  Plus, FileText, ExternalLink, Pencil, Trash2, Printer, Loader2,
+  Plus, FileText, ExternalLink, Pencil, Trash2, Printer, Loader2, FolderOpen,
 } from 'lucide-react'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -143,6 +143,7 @@ export function CoachSessions() {
           <div className="space-y-3">
             {sessions.map((s) => {
               const isRegenPending = regenPdf.isPending && regenPdf.variables?.id === s.id
+              const driveFolder = s.teams?.drive_links?.find((d) => d.link_type === 'team_report')
               return (
                 <Card key={s.id} className="overflow-hidden">
                   <CardContent className="p-0">
@@ -163,6 +164,17 @@ export function CoachSessions() {
                           {formatDate(s.session_date)}
                           {s.duration_mins ? ` · ${s.duration_mins} menit` : ''}
                         </p>
+                        {driveFolder && (
+                          <a
+                            href={driveFolder.folder_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-primary-700 hover:text-primary-900 hover:underline mt-2 font-medium"
+                          >
+                            <FolderOpen className="h-3 w-3" />
+                            {driveFolder.folder_name ?? 'Folder Drive tim'}
+                          </a>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -170,7 +182,7 @@ export function CoachSessions() {
                         {s.drive_report_url ? (
                           <Button asChild size="sm" variant="outline" className="flex-1 sm:flex-none">
                             <a href={s.drive_report_url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Buka PDF
+                              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Lihat PDF
                             </a>
                           </Button>
                         ) : (
