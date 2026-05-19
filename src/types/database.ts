@@ -433,6 +433,34 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          id: string
+          recipient_profile_id: string
+          type: string
+          title: string
+          body: string | null
+          link: string | null
+          ref_type: string | null
+          ref_id: string | null
+          read_at: Iso | null
+          created_at: Iso
+        }
+        Insert: {
+          recipient_profile_id: string
+          type: string
+          title: string
+          body?: string | null
+          link?: string | null
+          ref_type?: string | null
+          ref_id?: string | null
+          read_at?: Iso | null
+        }
+        Update: {
+          read_at?: Iso | null
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

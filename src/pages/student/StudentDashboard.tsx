@@ -267,7 +267,7 @@ export function StudentDashboard() {
                         <p className="text-sm font-bold text-text-primary truncate">{team.coaches.profiles?.full_name ?? 'Pembimbing'}</p>
                         <p className="text-[11px] text-primary-700 font-medium">Pembimbing</p>
                       </div>
-                      <Badge variant="primary" className="text-[10px]">Coach</Badge>
+                      <Badge variant="default" className="text-[10px]">Coach</Badge>
                     </li>
                   )}
 
