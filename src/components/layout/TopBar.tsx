@@ -1,4 +1,4 @@
-import { Bell } from 'lucide-react'
+import { Bell, Menu } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUnreadCount } from '@/hooks/useNotifications'
@@ -23,19 +23,31 @@ interface TopBarProps {
   title: string
   subtitle?: string
   actions?: React.ReactNode
+  onMenuClick?: () => void
 }
 
-export function TopBar({ title, subtitle, actions }: TopBarProps) {
+export function TopBar({ title, subtitle, actions, onMenuClick }: TopBarProps) {
   const { profile } = useAuthStore()
   const role = profile?.role ?? 'student'
   const today = new Date()
   const { data: unreadCount = 0 } = useUnreadCount()
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white/80 backdrop-blur-lg border-b border-surface-200 flex items-center justify-between px-6 flex-shrink-0">
-      <div className="min-w-0">
-        <h1 className="text-base font-bold text-text-primary truncate">{title}</h1>
-        {subtitle && <p className="text-xs text-text-tertiary truncate">{subtitle}</p>}
+    <header className="sticky top-0 z-30 h-14 sm:h-16 bg-white/80 backdrop-blur-lg border-b border-surface-200 flex items-center justify-between gap-3 px-4 sm:px-6 flex-shrink-0">
+      <div className="flex items-center gap-2 min-w-0">
+        {onMenuClick && (
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden h-9 w-9 inline-flex items-center justify-center rounded-lg text-text-secondary hover:bg-surface-50 hover:text-text-primary"
+            aria-label="Buka menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate">{title}</h1>
+          {subtitle && <p className="text-[11px] sm:text-xs text-text-tertiary truncate">{subtitle}</p>}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-4">

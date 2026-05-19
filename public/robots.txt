@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /auth/callback
+Disallow: /coach/
+Disallow: /student/
+Disallow: /parent/
+Disallow: /admin/
+Disallow: /onboarding/
+Disallow: /profile
+Disallow: /notifications
+
+Sitemap: https://bki-app.netlify.app/sitemap.xml

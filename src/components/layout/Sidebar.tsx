@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BookOpen, CheckSquare, FileText,
   LogOut, ChevronLeft, ChevronRight, Users, Bell, Heart, UserPlus,
-  FilePlus2,
+  FilePlus2, X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -62,7 +62,13 @@ const ROLE_ACCENT: Record<UserRole, string> = {
   admin:   'from-text-secondary to-primary-950',
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Mobile drawer open state — controlled by DashboardLayout. */
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const { profile } = useAuthStore()
   const signOut = useSignOut()
@@ -82,10 +88,24 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen bg-primary-950 flex flex-col z-40 transition-[width] duration-200 ease-out',
-        collapsed ? 'w-[72px]' : 'w-[260px]',
+        'fixed left-0 top-0 h-screen bg-primary-950 flex flex-col z-40',
+        'transition-[width,transform] duration-200 ease-out',
+        // Mobile: always 260px wide, slides off-screen unless mobileOpen
+        'w-[260px] -translate-x-full',
+        mobileOpen && 'translate-x-0',
+        // Desktop (lg+): always visible, can collapse to 72px
+        'lg:translate-x-0',
+        collapsed ? 'lg:w-[72px]' : 'lg:w-[260px]',
       )}
     >
+      {/* Mobile close button (top-right, inside sidebar) */}
+      <button
+        onClick={onMobileClose}
+        className="lg:hidden absolute right-3 top-3 h-8 w-8 inline-flex items-center justify-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white"
+        aria-label="Tutup menu"
+      >
+        <X className="h-4 w-4" />
+      </button>
       {/* ── Brand ────────────────────────────────────── */}
       <div className="px-4 pt-5 pb-6">
         <div className={cn(collapsed && 'flex justify-center')}>
@@ -166,10 +186,10 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* ── Collapse toggle ──────────────────────────── */}
+      {/* ── Collapse toggle (desktop only) ───────────── */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-[68px] h-6 w-6 rounded-full bg-white border border-surface-200 flex items-center justify-center shadow-soft hover:shadow-lift transition-shadow z-10"
+        className="hidden lg:flex absolute -right-3 top-[68px] h-6 w-6 rounded-full bg-white border border-surface-200 items-center justify-center shadow-soft hover:shadow-lift transition-shadow z-10"
         aria-label={collapsed ? 'Buka sidebar' : 'Tutup sidebar'}
       >
         {collapsed ? <ChevronRight className="h-3 w-3 text-text-secondary" /> : <ChevronLeft className="h-3 w-3 text-text-secondary" />}

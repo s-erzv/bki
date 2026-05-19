@@ -20,6 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
+import { resizeImage } from '@/lib/image'
 import { useAuthStore } from '@/stores/authStore'
 import { useSignOut } from '@/hooks/useAuth'
 import { useProfile, useUpdateProfile, useCoachProfile, useStudentProfile } from '@/hooks/useProfile'
@@ -129,8 +130,14 @@ export function ProfilePage() {
     if (!user) return
     setPhotoUploading(true)
     try {
-      const path = `avatars/${user.id}/${Date.now()}-${file.name.replace(/\s+/g, '-')}`
-      const { error: upErr } = await supabase.storage.from('session-docs').upload(path, file, { upsert: true })
+      // Client-side resize to 512×512 JPEG q=0.85. A 5MB selfie becomes ~80KB.
+      const resized = await resizeImage(file, { maxDim: 512, quality: 0.85 })
+      const path = `avatars/${user.id}/${Date.now()}.jpg`
+      const { error: upErr } = await supabase.storage.from('session-docs').upload(path, resized, {
+        upsert: true,
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+      })
       if (upErr) throw upErr
       const { data: pub } = supabase.storage.from('session-docs').getPublicUrl(path)
       const url = pub.publicUrl

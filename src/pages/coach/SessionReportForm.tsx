@@ -24,11 +24,12 @@ import {
 import { useCoachTeams } from '@/hooks/useTeam'
 import { useCreateSession } from '@/hooks/useSessions'
 import { useGoogleDriveAccess } from '@/hooks/useGoogleDriveAccess'
+import { resizeImage } from '@/lib/image'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
-import { generateReportPdf, blobToBase64, type ReportData } from '@/lib/report-pdf'
+import type { ReportData } from '@/lib/report-pdf'
 
 const STEPS = ['Info Sesi', 'Nilai Murid', 'Dokumentasi']
 
@@ -152,8 +153,14 @@ export function SessionReportForm() {
 
       const photoUrls: string[] = []
       for (const file of photos) {
-        const path = `${user.id}/${Date.now()}-${file.name.replace(/\s+/g, '-')}`
-        const { error } = await supabase.storage.from('session-docs').upload(path, file)
+        // Resize sesi photos: keep more detail than avatars (longest edge 1600px,
+        // q=0.82). Big phone photos go from ~5MB → ~300KB.
+        const resized = await resizeImage(file, { maxDim: 1600, quality: 0.82 })
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
+        const { error } = await supabase.storage.from('session-docs').upload(path, resized, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+        })
         if (error) throw error
         const { data: pub } = supabase.storage.from('session-docs').getPublicUrl(path)
         photoUrls.push(pub.publicUrl)
@@ -211,6 +218,9 @@ export function SessionReportForm() {
               notes: s.notes || null,
             })),
           }
+          // Lazy-load the PDF lib only when submitting — ~600KB stays out of
+          // the initial bundle for every other route.
+          const { generateReportPdf, blobToBase64 } = await import('@/lib/report-pdf')
           const blob = await generateReportPdf(reportData)
           const base64 = await blobToBase64(blob)
           const { data: resp, error: fnErr } = await supabase.functions.invoke('upload-report-to-drive', {
