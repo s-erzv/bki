@@ -13,10 +13,9 @@ export function useGoogleDriveAccess() {
         .from('oauth_tokens')
         .select('scope_level')
         .eq('profile_id', profileId)
-        .limit(1)
-      
-      if (error || !data || data.length === 0) return null
-      return data[0]
+        .maybeSingle()
+      if (error) throw error
+      return data
     },
     enabled: !!profileId,
   })
@@ -24,6 +23,9 @@ export function useGoogleDriveAccess() {
   const hasAccess = token?.scope_level === 'drive_calendar'
 
   const connect = async () => {
+    // Flag the upcoming sign-in so saveOauthToken() in useAuth.ts records
+    // scope_level='drive_calendar' instead of 'basic'. Cleared after read.
+    localStorage.setItem('bki:requested-scope', 'drive_calendar')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -34,10 +36,16 @@ export function useGoogleDriveAccess() {
           'https://www.googleapis.com/auth/calendar.events',
         ].join(' '),
         redirectTo: `${window.location.origin}/auth/callback`,
+        // offline + consent → ensures Google returns a refresh_token even on
+        // subsequent connects. Without these, only the first connect ever
+        // includes a refresh_token.
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     })
-    if (error) throw error
+    if (error) {
+      localStorage.removeItem('bki:requested-scope')
+      throw error
+    }
   }
 
   return { hasAccess, connect }

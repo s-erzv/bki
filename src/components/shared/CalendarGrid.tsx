@@ -12,13 +12,15 @@ const WEEK_DAYS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 
 export interface CalendarEvent {
   id: string
-  kind: 'task' | 'class'
+  kind: 'task' | 'class' | 'gcal'
   title: string
   date: string             // ISO
   durationMins?: number | null
   media?: 'online' | 'offline' | null
   teamCode?: string | null
   href?: string
+  /** For all-day Google events — render without a time prefix. */
+  allDay?: boolean
   meta?: Record<string, unknown>
 }
 
@@ -69,9 +71,11 @@ export function CalendarGrid({
   }, [events])
 
   // Compute WA reminder hints: H-2 for tasks, H-1 for classes.
+  // Google Calendar events are external — no WA reminder fires for them.
   const remindersByDay = useMemo(() => {
     const map = new Map<string, number>()
     for (const e of events) {
+      if (e.kind === 'gcal') continue
       const lead = e.kind === 'task' ? 2 : 1
       const remindDate = subDays(new Date(e.date), lead)
       const key = formatWIB(remindDate.toISOString(), 'yyyy-MM-dd')
@@ -118,6 +122,7 @@ export function CalendarGrid({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <LegendDot color="bg-primary-500" label="Kelas" />
         <LegendDot color="bg-accent-amber" label="Tugas" />
+        <LegendDot color="bg-text-tertiary" label="Google Calendar" />
         <span className="inline-flex items-center gap-1.5 text-text-tertiary">
           <MessageCircle className="h-3 w-3 text-accent-green" />
           WA reminder H-2 tugas / H-1 kelas
@@ -207,21 +212,33 @@ interface EventChipProps {
   onClick?: () => void
 }
 function EventChip({ event, onClick }: EventChipProps) {
-  const isTask = event.kind === 'task'
+  const classes =
+    event.kind === 'task'
+      ? 'bg-accent-amber/15 text-accent-amber hover:bg-accent-amber/25'
+      : event.kind === 'gcal'
+        ? 'bg-surface-100 text-text-secondary hover:bg-surface-200 border border-dashed border-surface-300'
+        : 'bg-primary-100 text-primary-800 hover:bg-primary-200'
+
+  const showTime = event.kind !== 'task' && !event.allDay
+
   return (
     <div
       role={onClick ? 'button' : undefined}
       onClick={onClick ? (e) => { e.stopPropagation(); onClick() } : undefined}
+      title={event.title}
       className={cn(
         'flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold truncate transition-colors',
-        isTask
-          ? 'bg-accent-amber/15 text-accent-amber hover:bg-accent-amber/25'
-          : 'bg-primary-100 text-primary-800 hover:bg-primary-200',
+        classes,
       )}
     >
-      <span className="tabular-nums opacity-70">
-        {!isTask && formatWIB(event.date, 'HH:mm')}
-      </span>
+      {showTime && (
+        <span className="tabular-nums opacity-70">
+          {formatWIB(event.date, 'HH:mm')}
+        </span>
+      )}
+      {event.kind === 'gcal' && event.allDay && (
+        <span className="text-[8px] uppercase tracking-wider opacity-60">All</span>
+      )}
       <span className="truncate">{event.title}</span>
     </div>
   )

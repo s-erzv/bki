@@ -62,7 +62,7 @@ export function SetKelasForm({ open, onOpenChange, defaultDate }: SetKelasFormPr
   const onSubmit = async (data: SetKelasFormData) => {
     try {
       const scheduledAt = new Date(`${data.date}T${data.time}:00+07:00`).toISOString()
-      await createClass.mutateAsync({
+      const { gmeetWarning } = await createClass.mutateAsync({
         classData: {
           scheduled_at: scheduledAt,
           duration_mins: data.duration_mins,
@@ -73,7 +73,18 @@ export function SetKelasForm({ open, onOpenChange, defaultDate }: SetKelasFormPr
         },
         teamIds: data.teamIds,
       })
-      toast({ title: 'Kelas berhasil dijadwalkan' })
+      if (gmeetWarning) {
+        toast({
+          title: 'Kelas tersimpan, tapi Meet link gagal dibuat',
+          description: gmeetWarning,
+          variant: 'destructive',
+        })
+      } else {
+        toast({
+          title: 'Kelas berhasil dijadwalkan',
+          description: data.media === 'online' ? 'Link Google Meet dan event Calendar otomatis dibuat.' : undefined,
+        })
+      }
       reset()
       onOpenChange(false)
     } catch (err) {

@@ -23,10 +23,12 @@ import {
 } from '@/components/ui/select'
 import { useCoachTeams } from '@/hooks/useTeam'
 import { useCreateSession } from '@/hooks/useSessions'
+import { useGoogleDriveAccess } from '@/hooks/useGoogleDriveAccess'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { generateReportPdf, blobToBase64, type ReportData } from '@/lib/report-pdf'
 
 const STEPS = ['Info Sesi', 'Nilai Murid', 'Dokumentasi']
 
@@ -71,10 +73,11 @@ export function SessionReportForm() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const classId = searchParams.get('classId')
-  const { user } = useAuthStore()
+  const { user, profile } = useAuthStore()
 
   const { data: teams = [] } = useCoachTeams()
   const createSession = useCreateSession()
+  const { hasAccess: hasDriveAccess } = useGoogleDriveAccess()
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
@@ -156,7 +159,7 @@ export function SessionReportForm() {
         photoUrls.push(pub.publicUrl)
       }
 
-      await createSession.mutateAsync({
+      const session = await createSession.mutateAsync({
         class_id: classId,
         team_id: step1Data.team_id,
         session_date: sessionDate,
@@ -179,12 +182,79 @@ export function SessionReportForm() {
         photoUrls,
       })
 
-      toast({ title: 'Laporan tersimpan!', description: 'PDF + WhatsApp ke wali sedang diproses.' })
+      // PDF generation + Drive upload. Only attempt if coach has connected Drive.
+      // Failure here is non-fatal — session is already saved, we just couldn't
+      // produce the PDF artifact.
+      let pdfWarning: string | undefined
+      if (hasDriveAccess) {
+        try {
+          const team = teams.find((t) => t.id === step1Data.team_id)
+          const reportData: ReportData = {
+            team_code: team?.team_code ?? 'TIM',
+            team_research_title: team?.research_title ?? null,
+            coach_name: profile?.full_name ?? 'Pembimbing',
+            session_date: sessionDate,
+            duration_mins: step1Data.duration_mins,
+            media: step1Data.media,
+            location: step1Data.location || null,
+            topic: step1Data.topic,
+            achievement: step1Data.achievement || null,
+            homework: step1Data.homework || null,
+            evaluation: step1Data.evaluation || null,
+            students: studentScores.map((s) => ({
+              student_name: s.nama,
+              score_discipline: s.scores.score_discipline,
+              score_activeness: s.scores.score_activeness,
+              score_communication: s.scores.score_communication,
+              score_ethics: s.scores.score_ethics,
+              score_understanding: s.scores.score_understanding,
+              notes: s.notes || null,
+            })),
+          }
+          const blob = await generateReportPdf(reportData)
+          const base64 = await blobToBase64(blob)
+          const { data: resp, error: fnErr } = await supabase.functions.invoke('upload-report-to-drive', {
+            body: { sessionId: session.id, pdfBase64: base64 },
+          })
+          if (fnErr) {
+            pdfWarning = (await readFnError(fnErr)) ?? fnErr.message
+          } else if (resp?.error) {
+            pdfWarning = resp.error
+          }
+        } catch (pdfErr) {
+          pdfWarning = pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
+        }
+      } else {
+        pdfWarning = 'Hubungkan Google Drive di dashboard untuk auto-upload laporan PDF.'
+      }
+
+      if (pdfWarning) {
+        toast({
+          title: 'Laporan tersimpan',
+          description: `Catatan: ${pdfWarning}`,
+        })
+      } else {
+        toast({
+          title: 'Laporan tersimpan!',
+          description: 'PDF terupload ke Drive tim.',
+        })
+      }
       navigate('/coach/sessions')
     } catch (err) {
       toast({ title: 'Gagal menyimpan laporan', description: errMsg(err), variant: 'destructive' })
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function readFnError(err: unknown): Promise<string | null> {
+    const ctx = (err as { context?: { response?: Response } })?.context
+    if (!ctx?.response) return null
+    try {
+      const body = await ctx.response.clone().json()
+      return body?.error ?? null
+    } catch {
+      return null
     }
   }
 

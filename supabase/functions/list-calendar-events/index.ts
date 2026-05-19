@@ -1,12 +1,10 @@
 //@ts-nocheck
 /**
- * Create a Google Calendar event + Meet link for a BKI class.
+ * List events from the coach's primary Google Calendar within a time range.
  *
- * Caller: client invokes after `useCreateClass` inserts the class row.
- * Body: { classId: string }
+ * Body: { coachId: string; timeMin?: ISO; timeMax?: ISO }
  *
- * Self-contained — no _shared/ imports, so it deploys cleanly from the
- * Supabase Dashboard (single-file upload).
+ * Self-contained — no _shared/ imports.
  */
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -88,85 +86,54 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { classId } = await req.json()
-    if (!classId) return json({ error: 'classId wajib diisi' }, 400)
+    const { coachId, timeMin, timeMax } = await req.json()
+    if (!coachId) return json({ error: 'coachId wajib' }, 400)
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL'),
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
     )
 
-    const { data: cls, error: clsErr } = await admin
-      .from('classes')
-      .select('id, coach_id, scheduled_at, duration_mins, topic, gcal_event_id')
-      .eq('id', classId)
-      .maybeSingle()
-    if (clsErr) throw new Error(`Load class gagal: ${clsErr.message}`)
-    if (!cls) throw new Error(`Class ${classId} not found`)
-    if (!cls.coach_id) throw new Error('Class belum punya coach')
-    if (cls.gcal_event_id) {
-      return json({ ok: true, alreadyCreated: true, gcal_event_id: cls.gcal_event_id })
-    }
-
-    const { data: teams } = await admin
-      .from('class_teams')
-      .select('teams(team_code)')
-      .eq('class_id', classId)
-    const teamCodes = (teams ?? [])
-      .map((row) => row.teams?.team_code)
-      .filter(Boolean)
-      .join(', ')
-
-    const profileId = await getCoachProfileId(admin, cls.coach_id)
+    const profileId = await getCoachProfileId(admin, coachId)
     const accessToken = await getValidGoogleToken(admin, profileId, 'drive_calendar')
 
-    const start = new Date(cls.scheduled_at)
-    const end = new Date(start.getTime() + (cls.duration_mins ?? 60) * 60_000)
+    const now = Date.now()
+    const params = new URLSearchParams({
+      timeMin: timeMin ?? new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      timeMax: timeMax ?? new Date(now + 90 * 24 * 60 * 60 * 1000).toISOString(),
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '250',
+    })
 
-    const summary = cls.topic
-      ? `BKI · ${cls.topic}${teamCodes ? ` (${teamCodes})` : ''}`
-      : `BKI · Bimbingan${teamCodes ? ` (${teamCodes})` : ''}`
-
-    const calEvent = {
-      summary,
-      description: 'Sesi bimbingan BKI — dibuat otomatis oleh platform.',
-      start: { dateTime: start.toISOString(), timeZone: 'Asia/Jakarta' },
-      end:   { dateTime: end.toISOString(),   timeZone: 'Asia/Jakarta' },
-      conferenceData: {
-        createRequest: {
-          requestId: `bki-class-${classId}`,
-          conferenceSolutionKey: { type: 'hangoutsMeet' },
-        },
-      },
-    }
-
-    const calResp = await fetch(
-      'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(calEvent),
-      },
+    const resp = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
     )
 
-    if (!calResp.ok) {
-      const errText = await calResp.text()
-      throw new Error(`Calendar API gagal (${calResp.status}): ${errText}`)
+    if (!resp.ok) {
+      const errText = await resp.text()
+      throw new Error(`Calendar API error (${resp.status}): ${errText}`)
     }
 
-    const calData = await calResp.json()
-    const gmeetLink = calData.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri ?? null
-    const gcalEventId = calData.id
+    const data = await resp.json()
 
-    await admin
-      .from('classes')
-      .update({ gmeet_link: gmeetLink, gcal_event_id: gcalEventId })
-      .eq('id', classId)
+    const items = (data.items ?? [])
+      .filter((e) => e.status !== 'cancelled')
+      .map((e) => ({
+        id:           e.id,
+        summary:      e.summary ?? '(tanpa judul)',
+        description:  e.description ?? null,
+        location:     e.location ?? null,
+        start:        e.start?.dateTime ?? e.start?.date ?? null,
+        end:          e.end?.dateTime   ?? e.end?.date   ?? null,
+        hangoutLink:  e.hangoutLink ?? null,
+        htmlLink:     e.htmlLink ?? null,
+        isAllDay:     !e.start?.dateTime,
+      }))
+      .filter((e) => e.start)
 
-    return json({ ok: true, gmeet_link: gmeetLink, gcal_event_id: gcalEventId })
+    return json({ events: items })
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : String(err) }, 400)
   }

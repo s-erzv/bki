@@ -68,14 +68,11 @@ export function useCreateClass() {
   const qc = useQueryClient()
   const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
 
-  return useMutation({
-    mutationFn: async ({
-      classData,
-      teamIds,
-    }: {
-      classData: Omit<ClassInsert, 'coach_id'>
-      teamIds: string[]
-    }) => {
+  return useMutation<{ cls: Class; gmeetWarning?: string }, Error, {
+    classData: Omit<ClassInsert, 'coach_id'>
+    teamIds: string[]
+  }>({
+    mutationFn: async ({ classData, teamIds }) => {
       if (!coachId) throw new Error('Akun pembimbing belum lengkap')
       const { data, error } = await supabase
         .from('classes')
@@ -84,14 +81,47 @@ export function useCreateClass() {
         .single()
       if (error) throw error
       const cls = data as Class
+
+      // Insert team links first — class_teams powers the Calendar event title.
       if (teamIds.length > 0) {
         const { error: ctErr } = await supabase
           .from('class_teams')
           .insert(teamIds.map((team_id) => ({ class_id: cls.id, team_id })))
         if (ctErr) throw ctErr
       }
-      return cls
+
+      // For online classes, auto-create the Meet link + Calendar event.
+      // We DON'T fail the whole mutation if this errors — class still got
+      // inserted, just the Meet link is missing. Surface as warning.
+      let gmeetWarning: string | undefined
+      if (cls.media === 'online') {
+        const { data: resp, error: fnErr } = await supabase.functions.invoke('create-gmeet', {
+          body: { classId: cls.id },
+        })
+        if (fnErr) {
+          gmeetWarning = await readFnError(fnErr) ?? fnErr.message
+        } else if (resp?.error) {
+          gmeetWarning = resp.error
+        } else if (resp?.gmeet_link) {
+          // Refresh local row with the Meet link
+          (cls as Class).gmeet_link = resp.gmeet_link
+          ;(cls as Class).gcal_event_id = resp.gcal_event_id
+        }
+      }
+
+      return { cls, gmeetWarning }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['classes'] }),
   })
+}
+
+async function readFnError(err: unknown): Promise<string | null> {
+  const ctx = (err as { context?: { response?: Response } })?.context
+  if (!ctx?.response) return null
+  try {
+    const body = await ctx.response.clone().json()
+    return body?.error ?? null
+  } catch {
+    return null
+  }
 }
