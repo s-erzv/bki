@@ -2,17 +2,33 @@
 -- Migration: schedule WhatsApp notification sender via pg_cron
 --
 -- Runs every 15 minutes, calling the send-wa-notifications Edge Function
--- which picks up pending rows from wa_notifications and dispatches them
--- through Fonnte.
+-- which picks up pending rows from wa_notifications and dispatches via Fonnte.
 --
--- Prereqs (enable in Supabase Dashboard → Database → Extensions):
---   - pg_cron
---   - pg_net  (for HTTP POST from Postgres)
+-- ⚠️ PREREQ — enable these extensions FIRST in Supabase Dashboard:
+--   Database → Extensions → search & enable:
+--     - pg_cron   (schema: pg_catalog, name: pg_cron)
+--     - pg_net    (schema: extensions, name: pg_net)
+--   Refresh the page after enabling; the cron schema becomes visible.
 --
--- Idempotent. Re-running unschedules + reschedules.
+-- After extensions are enabled, run this migration with PLACEHOLDERS replaced:
+--   PROJECT_REF        → your Supabase project ref (e.g. 'inxelxvzuuvfoouswrjp')
+--   SERVICE_ROLE_KEY   → service_role secret from Project Settings → API
+--
+-- Idempotent — re-running unschedules + reschedules.
 -- ─────────────────────────────────────────────────────────────────────────
 
--- Unschedule any previous version of the job
+-- Safety check: bail out with a friendly error if pg_cron isn't installed
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    RAISE EXCEPTION 'pg_cron extension is not enabled. Enable it via Supabase Dashboard → Database → Extensions before running this migration.';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_net') THEN
+    RAISE EXCEPTION 'pg_net extension is not enabled. Enable it via Supabase Dashboard → Database → Extensions before running this migration.';
+  END IF;
+END $$;
+
+-- Unschedule any previous version of the job (safe to call when job missing)
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'wa-notifications-every-15min') THEN
@@ -20,16 +36,7 @@ BEGIN
   END IF;
 END $$;
 
--- ⚠️ IMPORTANT: replace BOTH placeholders below before running:
---   1. PROJECT_REF  →  your Supabase project ref (e.g. 'inxelxvzuuvfoouswrjp')
---   2. SERVICE_ROLE_KEY  →  your service_role JWT
---      (Supabase Dashboard → Project Settings → API → service_role secret)
---
--- For security, after running this you can revoke the secret if needed —
--- pg_cron stores the SQL by value so the key is in the job definition.
--- An alternative is to store it in a separate config table and look up at
--- call time; for MVP this inline approach is fine.
-
+-- Schedule the new job — runs every 15 minutes
 SELECT cron.schedule(
   'wa-notifications-every-15min',
   '*/15 * * * *',
@@ -45,5 +52,5 @@ SELECT cron.schedule(
   $$
 );
 
--- Verify it was scheduled
-SELECT jobname, schedule, command FROM cron.job WHERE jobname = 'wa-notifications-every-15min';
+-- Verify
+SELECT jobname, schedule FROM cron.job WHERE jobname = 'wa-notifications-every-15min';

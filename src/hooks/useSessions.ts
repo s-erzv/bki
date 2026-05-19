@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import type { Database, SessionMedia, Session, SessionStudentReport } from '@/types/database'
 
 type SessionInsert = Database['public']['Tables']['sessions']['Insert']
+type SessionUpdate = Database['public']['Tables']['sessions']['Update']
 type SessionStudentReportInsert = Database['public']['Tables']['session_student_reports']['Insert']
 
 export interface SessionWithDetails extends Session {
@@ -79,6 +80,30 @@ export function useStudentSessions(teamId: string | null | undefined) {
 
 /* ─── Mutations ─────────────────────────────────────────── */
 
+/** Single session detail — used by SessionReportForm edit mode. */
+export function useSessionDetail(sessionId: string | null | undefined) {
+  return useQuery<SessionWithDetails | null>({
+    queryKey: ['session', sessionId],
+    queryFn: async () => {
+      if (!sessionId) return null
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(`
+          *,
+          teams(id, team_code, research_title),
+          session_student_reports(*),
+          session_docs(id, photo_url, sort_order)
+        `)
+        .eq('id', sessionId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (error) throw error
+      return (data as unknown as SessionWithDetails | null) ?? null
+    },
+    enabled: !!sessionId,
+  })
+}
+
 export function useCreateSession() {
   const qc = useQueryClient()
   const coachId = useAuthStore((s) => (s.profile?.role === 'coach' ? s.roleId : null))
@@ -124,6 +149,79 @@ export function useCreateSession() {
       }
 
       return created
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+  })
+}
+
+/**
+ * Update a session + replace its student_reports and session_docs.
+ * Replace-all is simpler than diffing; counts are small (≤6 students, ≤4 photos).
+ */
+export function useUpdateSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      sessionId, form,
+    }: {
+      sessionId: string
+      form: SessionFormData
+    }) => {
+      const updates: SessionUpdate = {
+        class_id: form.class_id,
+        team_id: form.team_id,
+        session_date: form.session_date,
+        duration_mins: form.duration_mins,
+        media: form.media,
+        location: form.location,
+        topic: form.topic,
+        achievement: form.achievement,
+        homework: form.homework,
+        evaluation: form.evaluation,
+      }
+      const { error } = await supabase.from('sessions').update(updates).eq('id', sessionId)
+      if (error) throw error
+
+      // Replace student_reports
+      const { error: delRErr } = await supabase
+        .from('session_student_reports').delete().eq('session_id', sessionId)
+      if (delRErr) throw delRErr
+      if (form.studentReports.length > 0) {
+        const { error: insRErr } = await supabase
+          .from('session_student_reports')
+          .insert(form.studentReports.map((r) => ({ ...r, session_id: sessionId })))
+        if (insRErr) throw insRErr
+      }
+
+      // Replace session_docs (photoUrls are public URLs after upload)
+      const { error: delDErr } = await supabase
+        .from('session_docs').delete().eq('session_id', sessionId)
+      if (delDErr) throw delDErr
+      if (form.photoUrls.length > 0) {
+        const { error: insDErr } = await supabase
+          .from('session_docs')
+          .insert(form.photoUrls.map((url, i) => ({
+            session_id: sessionId, photo_url: url, sort_order: i,
+          })))
+        if (insDErr) throw insDErr
+      }
+
+      return { id: sessionId }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+  })
+}
+
+/** Soft-delete: sets deleted_at, all queries filter `deleted_at IS NULL`. */
+export function useDeleteSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { error } = await supabase
+        .from('sessions')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', sessionId)
+      if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })

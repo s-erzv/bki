@@ -22,7 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { useCoachTeams } from '@/hooks/useTeam'
-import { useCreateSession } from '@/hooks/useSessions'
+import { useCreateSession, useUpdateSession, useSessionDetail } from '@/hooks/useSessions'
 import { useGoogleDriveAccess } from '@/hooks/useGoogleDriveAccess'
 import { resizeImage } from '@/lib/image'
 import { supabase } from '@/lib/supabase'
@@ -69,18 +69,24 @@ export function SessionReportForm() {
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null)
   const [studentScores, setStudentScores] = useState<StudentScore[]>([])
   const [photos, setPhotos] = useState<File[]>([])
+  /** Existing photos (URLs from session_docs). User can remove these in edit mode. */
+  const [existingPhotos, setExistingPhotos] = useState<Array<{ id: string; url: string }>>([])
   const [uploading, setUploading] = useState(false)
 
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const classId = searchParams.get('classId')
+  const sessionId = searchParams.get('sessionId')
+  const isEdit = !!sessionId
   const { user, profile } = useAuthStore()
 
   const { data: teams = [] } = useCoachTeams()
   const createSession = useCreateSession()
+  const updateSession = useUpdateSession()
+  const { data: existingSession } = useSessionDetail(sessionId)
   const { hasAccess: hasDriveAccess } = useGoogleDriveAccess()
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<Step1Data>({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
     defaultValues: {
       media: 'online',
@@ -98,6 +104,57 @@ export function SessionReportForm() {
     if (!classId) return
     // For now we just leave it — could fetch class and pre-fill in the future.
   }, [classId])
+
+  // Hydrate form when editing an existing session
+  useEffect(() => {
+    if (!isEdit || !existingSession || teams.length === 0) return
+    // Don't re-hydrate if we already pulled this session into state
+    if (step1Data?.team_id === existingSession.team_id) return
+
+    // Step 1
+    const dateLocal = new Date(existingSession.session_date)
+    const date = dateLocal.toISOString().slice(0, 10)
+    const time = dateLocal.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+    const hydrated: Step1Data = {
+      team_id:       existingSession.team_id,
+      date,
+      time,
+      duration_mins: existingSession.duration_mins ?? 90,
+      media:         existingSession.media,
+      location:      existingSession.location ?? undefined,
+      topic:         existingSession.topic ?? '',
+      achievement:   existingSession.achievement ?? undefined,
+      homework:      existingSession.homework ?? undefined,
+      evaluation:    existingSession.evaluation ?? undefined,
+    }
+    setStep1Data(hydrated)
+    reset(hydrated)
+
+    // Step 2: merge existing reports with team members (preserves order + adds new members not yet scored)
+    const team = teams.find((t) => t.id === existingSession.team_id)
+    const members = team?.team_members ?? []
+    const scored = members.map((m) => {
+      const r = existingSession.session_student_reports.find((rr) => rr.student_id === m.student_id)
+      return {
+        student_id: m.student_id,
+        nama: m.students?.profiles?.full_name ?? 'Murid',
+        photo_url: m.students?.profiles?.photo_url ?? null,
+        scores: {
+          score_discipline:    r?.score_discipline    ?? 7,
+          score_activeness:    r?.score_activeness    ?? 7,
+          score_communication: r?.score_communication ?? 7,
+          score_ethics:        r?.score_ethics        ?? 7,
+          score_understanding: r?.score_understanding ?? 7,
+        },
+        notes: r?.notes ?? '',
+      } as StudentScore
+    })
+    setStudentScores(scored)
+
+    // Step 3: existing photo URLs (keep separate from File uploads)
+    const docs = [...existingSession.session_docs].sort((a, b) => a.sort_order - b.sort_order)
+    setExistingPhotos(docs.map((d) => ({ id: d.id, url: d.photo_url })))
+  }, [isEdit, existingSession, teams, step1Data?.team_id, reset])
 
   const initStudentScores = (teamId: string) => {
     const team = teams.find((t) => t.id === teamId)
@@ -151,7 +208,7 @@ export function SessionReportForm() {
     try {
       const sessionDate = new Date(`${step1Data.date}T${step1Data.time}:00+07:00`).toISOString()
 
-      const photoUrls: string[] = []
+      const newPhotoUrls: string[] = []
       for (const file of photos) {
         // Resize sesi photos: keep more detail than avatars (longest edge 1600px,
         // q=0.82). Big phone photos go from ~5MB → ~300KB.
@@ -163,10 +220,11 @@ export function SessionReportForm() {
         })
         if (error) throw error
         const { data: pub } = supabase.storage.from('session-docs').getPublicUrl(path)
-        photoUrls.push(pub.publicUrl)
+        newPhotoUrls.push(pub.publicUrl)
       }
+      const allPhotoUrls = [...existingPhotos.map((p) => p.url), ...newPhotoUrls]
 
-      const session = await createSession.mutateAsync({
+      const sessionPayload = {
         class_id: classId,
         team_id: step1Data.team_id,
         session_date: sessionDate,
@@ -186,8 +244,12 @@ export function SessionReportForm() {
           score_understanding: s.scores.score_understanding,
           notes: s.notes || null,
         })),
-        photoUrls,
-      })
+        photoUrls: allPhotoUrls,
+      }
+
+      const session = isEdit && sessionId
+        ? await updateSession.mutateAsync({ sessionId, form: sessionPayload }).then(() => ({ id: sessionId }))
+        : await createSession.mutateAsync(sessionPayload)
 
       // PDF generation + Drive upload. Only attempt if coach has connected Drive.
       // Failure here is non-fatal — session is already saved, we just couldn't
@@ -240,13 +302,13 @@ export function SessionReportForm() {
 
       if (pdfWarning) {
         toast({
-          title: 'Laporan tersimpan',
+          title: isEdit ? 'Laporan diupdate' : 'Laporan tersimpan',
           description: `Catatan: ${pdfWarning}`,
         })
       } else {
         toast({
-          title: 'Laporan tersimpan!',
-          description: 'PDF terupload ke Drive tim.',
+          title: isEdit ? 'Laporan berhasil diupdate' : 'Laporan tersimpan!',
+          description: 'PDF terupload ke Drive tim (file lama otomatis di-replace).',
         })
       }
       navigate('/coach/sessions')
@@ -270,8 +332,8 @@ export function SessionReportForm() {
 
   return (
     <DashboardLayout
-      title="Buat Laporan Pertemuan"
-      subtitle="Selesai sesi? Catat semuanya di sini. Wali otomatis dapat PDF via WA."
+      title={isEdit ? 'Edit Laporan Sesi' : 'Buat Laporan Pertemuan'}
+      subtitle={isEdit ? 'Update data sesi. PDF di Drive bakal di-regen.' : 'Selesai sesi? Catat semuanya di sini. Wali otomatis dapat PDF via WA.'}
     >
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Stepper */}
@@ -451,31 +513,66 @@ export function SessionReportForm() {
               <CardContent className="p-6 space-y-5">
                 <div>
                   <SectionLabel icon={ImageIcon}>Foto Dokumentasi</SectionLabel>
-                  <p className="text-xs text-text-tertiary mt-1">Maksimal 4 foto landscape. Foto akan masuk ke folder Drive tim.</p>
+                  <p className="text-xs text-text-tertiary mt-1">Maksimal 4 foto. Foto akan masuk ke folder Drive tim.</p>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  {[0, 1, 2, 3].map((i) => {
-                    const file = photos[i]
-                    return (
-                      <div key={i} className="space-y-1.5">
-                        <PhotoUpload
-                          shape="square"
-                          size={160}
-                          value={file ? URL.createObjectURL(file) : null}
-                          onFileSelect={addPhoto}
-                          onClear={() => removePhoto(i)}
-                          className="w-full"
-                        />
-                        <p className="text-[10px] uppercase tracking-wider font-bold text-text-tertiary text-center">
-                          Foto {i + 1}{i === 0 && ' · utama'}
-                        </p>
-                      </div>
-                    )
-                  })}
+                {/* Existing photos (edit mode) — show as preview with remove button */}
+                {existingPhotos.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-text-tertiary mb-2">
+                      Foto saat ini ({existingPhotos.length})
+                    </p>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                      {existingPhotos.map((p) => (
+                        <div key={p.id} className="relative group rounded-2xl overflow-hidden border border-surface-200 aspect-square">
+                          <img src={p.url} alt="" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setExistingPhotos((prev) => prev.filter((x) => x.id !== p.id))}
+                            className="absolute top-2 right-2 h-7 w-7 inline-flex items-center justify-center rounded-full bg-white/90 text-danger shadow-soft opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Hapus foto"
+                            title="Hapus foto"
+                          >
+                            <CheckCircle2 className="hidden" />
+                            <span aria-hidden>×</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* New uploads */}
+                <div>
+                  {existingPhotos.length > 0 && (
+                    <p className="text-[10px] uppercase tracking-wider font-bold text-text-tertiary mb-2">
+                      Tambah foto baru
+                    </p>
+                  )}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {Array.from({ length: Math.max(0, 4 - existingPhotos.length) }).map((_, i) => {
+                      const file = photos[i]
+                      const totalIdx = existingPhotos.length + i
+                      return (
+                        <div key={i} className="space-y-1.5">
+                          <PhotoUpload
+                            shape="square"
+                            size={160}
+                            value={file ? URL.createObjectURL(file) : null}
+                            onFileSelect={addPhoto}
+                            onClear={() => removePhoto(i)}
+                            className="w-full"
+                          />
+                          <p className="text-[10px] uppercase tracking-wider font-bold text-text-tertiary text-center">
+                            Foto {totalIdx + 1}{totalIdx === 0 && ' · utama'}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
 
-                {photos.length === 0 && (
+                {existingPhotos.length === 0 && photos.length === 0 && (
                   <p className="text-[11px] text-text-tertiary italic flex items-center gap-1.5">
                     <Sparkles className="h-3 w-3" /> Foto opsional, tapi sangat membantu wali memantau aktivitas.
                   </p>
@@ -496,7 +593,7 @@ export function SessionReportForm() {
                   <Summary label="Durasi"   value={`${step1Data?.duration_mins ?? 0} menit`} />
                   <Summary label="Media"    value={step1Data?.media === 'online' ? 'Online' : 'Offline'} />
                   <Summary label="Murid"    value={`${studentScores.length} orang`} />
-                  <Summary label="Foto"     value={`${photos.length} / 4`} />
+                  <Summary label="Foto"     value={`${existingPhotos.length + photos.length} / 4`} />
                 </div>
                 <p className="text-[11px] text-text-secondary leading-relaxed mt-3 pt-3 border-t border-primary-200/50">
                   Setelah disimpan: PDF laporan dibuat → upload ke Drive tim → kirim ke nomor WA wali murid.
