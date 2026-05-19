@@ -166,6 +166,12 @@ export type Database = {
         Update: { team_id?: string; student_id?: string }
         Relationships: []
       }
+      team_coaches: {
+        Row: { id: string; team_id: string; coach_id: string; role: string | null; joined_at: Iso }
+        Insert: { team_id: string; coach_id: string; role?: string | null }
+        Update: { team_id?: string; coach_id?: string; role?: string | null }
+        Relationships: []
+      }
       classes: {
         Row: {
           id: string
@@ -452,6 +458,7 @@ export type Parent = Database['public']['Tables']['parents']['Row']
 export type ParentStudent = Database['public']['Tables']['parent_students']['Row']
 export type Team = Database['public']['Tables']['teams']['Row']
 export type TeamMember = Database['public']['Tables']['team_members']['Row']
+export type TeamCoach = Database['public']['Tables']['team_coaches']['Row']
 export type Class = Database['public']['Tables']['classes']['Row']
 export type ClassTeam = Database['public']['Tables']['class_teams']['Row']
 export type Session = Database['public']['Tables']['sessions']['Row']

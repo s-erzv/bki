@@ -8,6 +8,8 @@ import { LandingPage } from '@/pages/LandingPage'
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage'
 import { PrivacyPolicy } from '@/pages/PrivacyPolicy'
 import { TermsOfService } from '@/pages/TermsOfService'
+import { ProfilePage } from '@/pages/ProfilePage'
+import { NotificationsPage } from '@/pages/NotificationsPage'
 
 import { CoachDashboard } from '@/pages/coach/CoachDashboard'
 import { CoachCalendar } from '@/pages/coach/CoachCalendar'
@@ -96,6 +98,9 @@ export default function App() {
       <Route path="/parent/reports"  element={<ProtectedRoute roles={['parent']}><ParentReports /></ProtectedRoute>} />
 
       <Route path="/admin/*" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+
+      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

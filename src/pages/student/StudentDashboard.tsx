@@ -54,7 +54,7 @@ export function StudentDashboard() {
           photoUrl={profile?.photo_url}
           teamCode={team?.team_code}
           researchTitle={team?.research_title}
-          subtitle="Murid"
+          subtitle={`Murid${team?.coaches?.profiles?.full_name ? ` · Pembimbing: ${team.coaches.profiles.full_name}` : ''}`}
           accent="student"
           onResearchTitleChange={teamId ? handleTitleUpdate : undefined}
         />
@@ -243,16 +243,34 @@ export function StudentDashboard() {
           {/* Team mates */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Anggota Tim</CardTitle>
+              <CardTitle>Tim Kami</CardTitle>
               {team?.team_code && <Badge variant="outline" className="font-mono text-[10px]">{team.team_code}</Badge>}
             </CardHeader>
             <CardContent className="pt-0">
               {teamLoading ? (
                 <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-              ) : !team || team.team_members.length === 0 ? (
-                <EmptyState icon={Users} title="Belum ada anggota tim" size="sm" />
+              ) : !team ? (
+                <EmptyState icon={Users} title="Belum ada tim" size="sm" />
               ) : (
                 <ul className="space-y-2">
+                  {/* Coach at the top */}
+                  {team.coaches && (
+                    <li className="flex items-center gap-3 rounded-xl border border-primary-100 bg-primary-50/30 p-2.5">
+                      {team.coaches.profiles?.photo_url ? (
+                        <img src={team.coaches.profiles.photo_url} alt="" className="h-9 w-9 rounded-full object-cover ring-2 ring-primary-200" />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-primary-600 text-white flex items-center justify-center text-sm font-bold shadow-soft">
+                          {(team.coaches.profiles?.full_name ?? '?').slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-text-primary truncate">{team.coaches.profiles?.full_name ?? 'Pembimbing'}</p>
+                        <p className="text-[11px] text-primary-700 font-medium">Pembimbing</p>
+                      </div>
+                      <Badge variant="primary" className="text-[10px]">Coach</Badge>
+                    </li>
+                  )}
+
                   {team.team_members.map((tm) => {
                     const isMe = tm.student_id === studentId
                     const s = tm.students

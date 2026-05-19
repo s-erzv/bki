@@ -1,5 +1,7 @@
 import { Bell } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useUnreadCount } from '@/hooks/useNotifications'
 import { formatWIB } from '@/lib/utils'
 import type { UserRole } from '@/types/database'
 
@@ -27,6 +29,7 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
   const { profile } = useAuthStore()
   const role = profile?.role ?? 'student'
   const today = new Date()
+  const { data: unreadCount = 0 } = useUnreadCount()
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white/80 backdrop-blur-lg border-b border-surface-200 flex items-center justify-between px-6 flex-shrink-0">
@@ -43,12 +46,25 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
           <p className="text-xs font-semibold text-text-primary tabular-nums">{formatWIB(today.toISOString(), 'EEEE, d MMM yyyy')}</p>
         </div>
 
-        <button className="relative p-2 rounded-lg text-text-secondary hover:bg-surface-50 hover:text-text-primary transition-colors" aria-label="Notifikasi">
+        <Link
+          to="/notifications"
+          className="relative p-2 rounded-lg text-text-secondary hover:bg-surface-50 hover:text-text-primary transition-colors"
+          aria-label={unreadCount > 0 ? `Notifikasi, ${unreadCount} belum dibaca` : 'Notifikasi'}
+          title={unreadCount > 0 ? `${unreadCount} notifikasi baru` : 'Notifikasi'}
+        >
           <Bell className="h-[18px] w-[18px]" />
-          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-accent-red ring-2 ring-white" />
-        </button>
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-accent-red text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white tabular-nums">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </Link>
 
-        <div className="flex items-center gap-2.5">
+        <Link
+          to="/profile"
+          className="flex items-center gap-2.5 rounded-xl p-1 pr-2 hover:bg-surface-50 transition-colors"
+          title="Buka profil saya"
+        >
           {profile?.photo_url ? (
             <img src={profile.photo_url} alt="" className="h-9 w-9 rounded-full object-cover ring-2 ring-surface-100" />
           ) : (
@@ -60,7 +76,7 @@ export function TopBar({ title, subtitle, actions }: TopBarProps) {
             <p className="text-sm font-semibold text-text-primary leading-tight truncate max-w-[12rem]">{profile?.full_name ?? 'Pengguna'}</p>
             <p className="text-[11px] text-text-tertiary leading-tight">{ROLE_LABEL[role]}</p>
           </div>
-        </div>
+        </Link>
       </div>
     </header>
   )

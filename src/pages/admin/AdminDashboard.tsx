@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Routes, Route, Link } from 'react-router-dom'
-import { Users, BookOpen, Bell, Search, Trash2, UserPlus, Pencil } from 'lucide-react'
+import { Users, BookOpen, Bell, Search, Trash2, UserPlus, Pencil, Send, RefreshCw } from 'lucide-react'
 import { AdminCreateUser } from './AdminCreateUser'
 import { AdminTeams } from './AdminTeams'
 import { EditUserSheet } from './EditUserSheet'
@@ -507,6 +507,7 @@ function AdminRelations() {
 // AdminTeams moved to ./AdminTeams.tsx — full CRUD + member management.
 
 function AdminNotifications() {
+  const qc = useQueryClient()
   const { data: notifications = [], isLoading } = useQuery<WaNotification[]>({
     queryKey: ['admin_notifications_all'],
     queryFn: async () => {
@@ -518,9 +519,82 @@ function AdminNotifications() {
     },
   })
 
+  const pendingCount = notifications.filter((n) => n.status === 'pending').length
+  const failedCount  = notifications.filter((n) => n.status === 'failed').length
+
+  const sendNow = useMutation({
+    mutationFn: async (opts: { retryFailed?: boolean; ids?: string[] }) => {
+      const { data, error } = await supabase.functions.invoke('send-wa-notifications', { body: opts })
+      if (error) {
+        const detail = await readFnError(error)
+        throw new Error(detail ?? error.message)
+      }
+      if (data?.error) throw new Error(data.error)
+      return data as { sent: number; failed: number; queued: number; message?: string }
+    },
+    onSuccess: (res) => {
+      if (res.message) {
+        toast({ title: res.message })
+      } else {
+        toast({
+          title: `Selesai · ${res.sent} terkirim, ${res.failed} gagal`,
+          description: res.failed > 0 ? 'Cek log untuk detail error per pesan.' : undefined,
+          variant: res.failed > 0 ? 'destructive' : undefined,
+        })
+      }
+      qc.invalidateQueries({ queryKey: ['admin_notifications_all'] })
+      qc.invalidateQueries({ queryKey: ['admin_stats'] })
+    },
+    onError: (err) => {
+      toast({
+        title: 'Gagal trigger pengiriman',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const retryOne = (id: string) => sendNow.mutate({ ids: [id] })
+
   return (
     <Card>
-      <CardHeader><CardTitle>Log Notifikasi WA</CardTitle></CardHeader>
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <CardTitle>Log Notifikasi WA</CardTitle>
+          <p className="text-xs text-text-tertiary mt-1">
+            {pendingCount > 0
+              ? `${pendingCount} pending${failedCount > 0 ? `, ${failedCount} gagal` : ''} · klik "Kirim Pending" untuk proses sekarang.`
+              : failedCount > 0
+                ? `${failedCount} gagal · bisa di-retry per baris atau semua sekaligus.`
+                : 'Semua notifikasi sudah terkirim.'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {pendingCount > 0 && (
+            <Button
+              size="sm"
+              onClick={() => sendNow.mutate({})}
+              disabled={sendNow.isPending}
+              className="gap-1.5"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {sendNow.isPending ? 'Mengirim…' : `Kirim Pending (${pendingCount})`}
+            </Button>
+          )}
+          {failedCount > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => sendNow.mutate({ retryFailed: true })}
+              disabled={sendNow.isPending}
+              className="gap-1.5"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry semua gagal
+            </Button>
+          )}
+        </div>
+      </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -530,6 +604,7 @@ function AdminNotifications() {
                 <th className="text-left px-5 py-3">Pesan</th>
                 <th className="text-left px-5 py-3">Status</th>
                 <th className="text-left px-5 py-3">Tgl Kirim</th>
+                <th className="w-12 px-2 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -540,19 +615,43 @@ function AdminNotifications() {
                     <td className="px-5 py-3"><Skeleton className="h-4 w-64" /></td>
                     <td className="px-5 py-3"><Skeleton className="h-6 w-16" /></td>
                     <td className="px-5 py-3"><Skeleton className="h-4 w-32" /></td>
+                    <td />
                   </tr>
                 ))
               ) : notifications.length === 0 ? (
-                <tr><td colSpan={4} className="px-5 py-10 text-center text-text-tertiary italic">Belum ada riwayat notifikasi</td></tr>
+                <tr><td colSpan={5} className="px-5 py-10 text-center text-text-tertiary italic">Belum ada riwayat notifikasi</td></tr>
               ) : (
-                notifications.map((n) => (
-                  <tr key={n.id} className="border-b border-surface-50 hover:bg-surface-50 transition-colors">
-                    <td className="px-5 py-3 font-mono text-xs text-text-primary">{n.recipient_phone}</td>
-                    <td className="px-5 py-3 text-text-secondary max-w-xs truncate">{n.message}</td>
-                    <td className="px-5 py-3"><Badge variant={STATUS_VARIANT[n.status]}>{n.status}</Badge></td>
-                    <td className="px-5 py-3 text-text-tertiary">{formatDate(n.created_at)}</td>
-                  </tr>
-                ))
+                notifications.map((n) => {
+                  const canRetry = n.status === 'pending' || n.status === 'failed'
+                  return (
+                    <tr key={n.id} className="border-b border-surface-50 hover:bg-surface-50 transition-colors">
+                      <td className="px-5 py-3 font-mono text-xs text-text-primary">{n.recipient_phone}</td>
+                      <td className="px-5 py-3 text-text-secondary max-w-xs truncate" title={n.message}>{n.message}</td>
+                      <td className="px-5 py-3">
+                        <Badge variant={STATUS_VARIANT[n.status]}>{n.status}</Badge>
+                        {n.status === 'failed' && n.error_msg && (
+                          <p className="text-[10px] text-danger mt-1 max-w-[12rem] truncate" title={n.error_msg}>
+                            {n.error_msg}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-text-tertiary">{formatDate(n.created_at)}</td>
+                      <td className="px-2 py-3">
+                        {canRetry && (
+                          <button
+                            onClick={() => retryOne(n.id)}
+                            disabled={sendNow.isPending}
+                            className="h-7 w-7 inline-flex items-center justify-center rounded-md text-text-tertiary hover:text-primary-700 hover:bg-primary-50 disabled:opacity-50 transition-colors"
+                            title="Kirim ulang baris ini"
+                            aria-label="Kirim ulang"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -560,6 +659,17 @@ function AdminNotifications() {
       </CardContent>
     </Card>
   )
+}
+
+async function readFnError(err: unknown): Promise<string | null> {
+  const ctx = (err as { context?: { response?: Response } })?.context
+  if (!ctx?.response) return null
+  try {
+    const body = await ctx.response.clone().json()
+    return body?.error ?? null
+  } catch {
+    return null
+  }
 }
 
 export function AdminDashboard() {

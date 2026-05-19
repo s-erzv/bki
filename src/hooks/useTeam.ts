@@ -14,6 +14,14 @@ export interface StudentBrief {
 
 export interface TeamWithMembers extends Team {
   team_members: Array<{ student_id: string; students: StudentBrief | null }>
+  team_coaches: Array<{
+    id: string
+    coach_id: string
+    role: string | null
+    coaches: { id: string; profiles: { full_name: string; photo_url: string | null } | null } | null
+  }>
+  /** Backward compatibility / Lead coach */
+  coaches?: { id: string; profiles: { full_name: string; photo_url: string | null } | null } | null
 }
 
 /* ─── Coach ─────────────────────────────────────────────── */
@@ -25,16 +33,36 @@ export function useCoachTeams() {
     queryKey: ['teams', 'coach', coachId],
     queryFn: async () => {
       if (!coachId) return []
+      
+      // Step 1: Get IDs of teams where the coach is involved
+      const [primaryRes, junctionRes] = await Promise.all([
+        supabase.from('teams').select('id').eq('coach_id', coachId),
+        supabase.from('team_coaches').select('team_id').eq('coach_id', coachId)
+      ])
+      
+      const teamIds = Array.from(new Set([
+        ...(primaryRes.data?.map(t => t.id) ?? []),
+        ...(junctionRes.data?.map(t => t.team_id) ?? [])
+      ]))
+
+      if (teamIds.length === 0) return []
+
+      // Step 2: Fetch full details for those teams
       const { data, error } = await supabase
         .from('teams')
         .select(`
           *,
+          coaches(id, profiles(full_name, photo_url)),
+          team_coaches(
+            id, coach_id, role,
+            coaches(id, profiles(full_name, photo_url))
+          ),
           team_members(
             student_id,
             students(id, profile_id, grade, major, profiles(full_name, photo_url))
           )
         `)
-        .eq('coach_id', coachId)
+        .in('id', teamIds)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -59,6 +87,11 @@ export function useStudentTeam() {
           team_id,
           teams(
             *,
+            coaches(id, profiles(full_name, photo_url)),
+            team_coaches(
+              id, coach_id, role,
+              coaches(id, profiles(full_name, photo_url))
+            ),
             team_members(
               student_id,
               students(id, profile_id, grade, major, profiles(full_name, photo_url))
