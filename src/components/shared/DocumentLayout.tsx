@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { GraduationCap, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 
 interface TocItem {
   id: string
@@ -31,16 +31,11 @@ export function DocumentLayout({ title, kind, updatedAt, toc, children }: Docume
       {/* Top bar */}
       <header className="sticky top-0 z-30 border-b border-surface-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-10 h-14 sm:h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary-950 text-white flex items-center justify-center shadow-soft">
-              <GraduationCap className="h-4 w-4 sm:h-4.5 sm:w-4.5" strokeWidth={2.25} />
-            </div>
-            <div className="leading-tight">
-              <p className="font-extrabold text-primary-950 text-sm tracking-tight">BKI</p>
-              <p className="text-[9px] uppercase tracking-[0.16em] font-semibold text-text-tertiary hidden sm:block">
-                Bimbingan Karya Ilmiah
-              </p>
-            </div>
+          <Link to="/" className="leading-tight">
+            <p className="font-extrabold text-primary-950 text-sm tracking-tight">BKI</p>
+            <p className="text-[9px] uppercase tracking-[0.16em] font-semibold text-text-tertiary hidden sm:block">
+              Bimbingan Karya Ilmiah
+            </p>
           </Link>
           <Link
             to="/"

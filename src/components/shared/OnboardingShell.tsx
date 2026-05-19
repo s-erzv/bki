@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { GraduationCap, Heart, Users, ShieldCheck } from 'lucide-react'
+import { Heart, Users, ShieldCheck, GraduationCap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { UserRole } from '@/types/database'
@@ -33,16 +33,11 @@ export function OnboardingShell({ role, title, description, stepper, children, r
     <div className="min-h-screen grid lg:grid-cols-[1fr_440px] bg-surface-50">
       {/* ── Form side ─────────────────────────────────── */}
       <main className="flex flex-col min-h-screen px-6 sm:px-10 lg:px-16 py-10 lg:py-14">
-        <Link to="/" className="inline-flex items-center gap-2.5 self-start group mb-10">
-          <div className="h-9 w-9 rounded-xl bg-primary-950 flex items-center justify-center group-hover:bg-primary-900 transition-colors">
-            <GraduationCap className="h-5 w-5 text-white" strokeWidth={2.5} />
-          </div>
-          <div className="leading-tight">
-            <p className="font-extrabold text-text-primary tracking-tight">BKI</p>
-            <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-text-tertiary">
-              Bimbingan Karya Ilmiah
-            </p>
-          </div>
+        <Link to="/" className="inline-block self-start group mb-10 leading-tight">
+          <p className="font-extrabold text-text-primary tracking-tight group-hover:text-primary-700 transition-colors">BKI</p>
+          <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-text-tertiary">
+            Bimbingan Karya Ilmiah
+          </p>
         </Link>
 
         <div className="flex-1 max-w-2xl mx-auto w-full">

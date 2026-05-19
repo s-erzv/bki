@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, BookOpen, CheckSquare, FileText,
   LogOut, ChevronLeft, ChevronRight, Users, Bell, Heart, UserPlus,
-  FilePlus2, GraduationCap,
+  FilePlus2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -88,16 +88,17 @@ export function Sidebar() {
     >
       {/* ── Brand ────────────────────────────────────── */}
       <div className="px-4 pt-5 pb-6">
-        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
-          <div className={cn(
-            'h-10 w-10 rounded-xl bg-gradient-to-br flex-shrink-0 flex items-center justify-center shadow-lg',
-            accentGradient,
-          )}>
-            <GraduationCap className="h-5 w-5 text-white" strokeWidth={2.5} />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-white font-extrabold tracking-tight leading-tight">BKI</p>
+        <div className={cn(collapsed && 'flex justify-center')}>
+          {collapsed ? (
+            <div className={cn(
+              'h-10 w-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-white font-extrabold text-sm tracking-tight shadow-lg',
+              accentGradient,
+            )}>
+              BKI
+            </div>
+          ) : (
+            <div className="min-w-0 leading-tight">
+              <p className="text-white font-extrabold tracking-tight">BKI</p>
               <p className="text-white/50 text-[10px] uppercase tracking-[0.14em] font-semibold">
                 Bimbingan Karya Ilmiah
               </p>

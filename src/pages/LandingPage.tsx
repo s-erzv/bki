@@ -16,80 +16,80 @@ import type { UserRole } from '@/types/database'
 /* ─── Data ─────────────────────────────────────────────────────────── */
 
 const ROLES: Array<{ role: UserRole; label: string; subtitle: string; icon: LucideIcon; color: string }> = [
-  { role: 'coach',   label: 'Pembimbing', subtitle: 'Jadwalkan kelas, beri tugas, laporkan sesi',
+  { role: 'coach',   label: 'Pembimbing', subtitle: 'Jadwalkan kelas, berikan tugas, dokumentasikan sesi',
     icon: GraduationCap, color: 'from-primary-500 to-primary-700' },
-  { role: 'student', label: 'Murid',      subtitle: 'Akses kelas, kumpulkan tugas, lihat skor',
+  { role: 'student', label: 'Murid',      subtitle: 'Akses kelas, kumpulkan tugas, pantau skor',
     icon: Users,         color: 'from-accent-teal to-primary-600' },
-  { role: 'parent',  label: 'Wali Murid', subtitle: 'Pantau progres anak, terima laporan WA',
+  { role: 'parent',  label: 'Wali Murid', subtitle: 'Pantau progres dan terima laporan WhatsApp',
     icon: Heart,         color: 'from-accent-purple to-primary-700' },
-  { role: 'admin',   label: 'Admin',      subtitle: 'Kelola akun, tim, dan operasional',
+  { role: 'admin',   label: 'Admin',      subtitle: 'Kelola akun, tim, dan operasional sistem',
     icon: Shield,        color: 'from-slate-500 to-primary-950' },
 ]
 
 const BENEFITS = [
-  { icon: Calendar,       title: 'Jadwal otomatis',  desc: 'Kelas sync ke Google Calendar, Meet auto-generate.' },
-  { icon: ClipboardList,  title: 'Tugas terlacak',   desc: 'Coach assign, murid submit, semua di satu tempat.' },
-  { icon: FileBarChart2,  title: 'Laporan PDF',      desc: 'Tiap sesi → laporan rapi langsung ke wali via WA.' },
-  { icon: FolderOpen,     title: 'Drive terstruktur', desc: 'Folder otomatis per tim, dokumentasi rapi.' },
+  { icon: Calendar,       title: 'Jadwal terintegrasi', desc: 'Kelas tersinkronisasi dengan Google Calendar; tautan Meet dibuat otomatis.' },
+  { icon: ClipboardList,  title: 'Penugasan terlacak',  desc: 'Pembimbing memberikan tugas, murid mengumpulkan; seluruhnya tercatat.' },
+  { icon: FileBarChart2,  title: 'Laporan terdokumentasi', desc: 'Setiap sesi menghasilkan PDF yang diteruskan ke wali via WhatsApp.' },
+  { icon: FolderOpen,     title: 'Penyimpanan terstruktur', desc: 'Folder Drive terorganisir per tim untuk dokumentasi yang konsisten.' },
 ]
 
 const TOUR = [
   {
-    eyebrow: 'Untuk Pembimbing',
-    title: 'Atur jadwal dan dokumentasi sesi tanpa ribet.',
-    desc: 'Bikin kelas sekali, Meet & Calendar otomatis siap. Selesai sesi, isi laporan singkat — PDF tergenerate, foto tersimpan ke Drive, wali murid dapat notifikasi WhatsApp.',
-    bullets: ['Sinkron Google Calendar + Meet', 'Form laporan 5 menit', 'Otomatis kirim ke wali'],
+    eyebrow: 'Untuk pembimbing',
+    title: 'Atur jadwal dan dokumentasikan sesi dengan efisien.',
+    desc: 'Buat kelas sekali—Google Calendar dan tautan Meet langsung tersiapkan. Setelah sesi berakhir, isi formulir laporan singkat: PDF terbangun otomatis, foto tersimpan ke Drive, dan notifikasi terkirim ke wali murid melalui WhatsApp.',
+    bullets: ['Sinkronisasi Google Calendar dan Meet', 'Formulir laporan ringkas', 'Notifikasi otomatis kepada wali'],
     mockup: 'coach' as const,
   },
   {
-    eyebrow: 'Untuk Murid',
-    title: 'Semua tugas dan jadwal kelas di satu dashboard.',
-    desc: 'Lihat tugas yang harus dikumpul, deadline, dan link Meet kelas berikutnya. Submit hasil langsung dari dashboard. Tidak ada lagi grup WhatsApp yang berantakan.',
-    bullets: ['Filter tugas aktif vs selesai', 'Reminder otomatis H-2 deadline', 'Histori skor terlihat jelas'],
+    eyebrow: 'Untuk murid',
+    title: 'Seluruh aktivitas akademik dalam satu dashboard.',
+    desc: 'Pantau tugas yang harus dikumpulkan, tenggat waktu, serta tautan Meet untuk kelas berikutnya. Kumpulkan hasil pekerjaan langsung dari dashboard—tidak perlu lagi menelusuri percakapan grup.',
+    bullets: ['Filter tugas berdasarkan status', 'Pengingat otomatis menjelang tenggat', 'Riwayat skor yang transparan'],
     mockup: 'student' as const,
   },
   {
-    eyebrow: 'Untuk Wali Murid',
-    title: 'Tahu persis bagaimana progres anak kamu.',
-    desc: 'Setiap kali anak ikut sesi, kamu dapat laporan PDF lewat WhatsApp. Skor lima dimensi (disiplin, aktif, komunikasi, etika, paham) terdokumentasi rapi tiap pertemuan.',
-    bullets: ['Laporan langsung ke WhatsApp', 'Histori skor & catatan coach', 'Akses kapan saja dari ponsel'],
+    eyebrow: 'Untuk wali murid',
+    title: 'Pantau perkembangan akademik secara transparan.',
+    desc: 'Setiap sesi bimbingan menghasilkan laporan PDF yang diteruskan ke nomor WhatsApp Anda. Skor lima dimensi—disiplin, keaktifan, komunikasi, etika, dan pemahaman—tercatat pada setiap pertemuan.',
+    bullets: ['Laporan rutin melalui WhatsApp', 'Riwayat skor dan catatan pembimbing', 'Akses kapan saja melalui ponsel'],
     mockup: 'parent' as const,
   },
 ]
 
 const STEPS = [
-  { n: 1, title: 'Daftar atau diundang', desc: 'Admin BKI bikinkan akun, atau kamu daftar langsung lewat halaman login.' },
-  { n: 2, title: 'Masuk dashboard',      desc: 'Setiap peran punya dashboard sendiri — coach, murid, wali, admin.' },
-  { n: 3, title: 'Mulai bimbingan',      desc: 'Jadwal, tugas, dan laporan jalan otomatis. Semua tercatat.' },
+  { n: 1, title: 'Pendaftaran akun', desc: 'Daftarkan akun secara mandiri melalui halaman registrasi atau terima undangan dari administrator BKI.' },
+  { n: 2, title: 'Akses dashboard', desc: 'Tampilan dashboard menyesuaikan peran Anda—pembimbing, murid, wali, atau administrator.' },
+  { n: 3, title: 'Operasional berjalan', desc: 'Jadwal, tugas, dan laporan berjalan dalam alur yang terintegrasi dan terdokumentasi.' },
 ]
 
 const TESTIMONIALS = [
   {
-    quote: 'Sebelumnya kami catat sesi di Google Docs dan kirim foto satu-satu ke wali via WA. Sekarang semua otomatis — coach tinggal isi form, sisanya beres.',
+    quote: 'Sebelumnya kami mencatat sesi di Google Docs dan mengirim foto satu per satu ke wali murid melalui WhatsApp. Saat ini seluruh prosesnya terotomasi—pembimbing cukup mengisi formulir, distribusi laporan berjalan dengan sendirinya.',
     name: 'Bu Rina', role: 'Koordinator BKI · SMA',
   },
   {
-    quote: 'Aku jadi tahu kapan harus kumpul tugas dan link Meet-nya tanpa cari-cari chat lama. Dashboardnya gampang dipakai dari HP.',
+    quote: 'Saya dapat melihat jadwal kelas dan tugas yang harus dikumpulkan pada satu tempat. Tidak perlu lagi menelusuri percakapan grup yang panjang.',
     name: 'Fairuz', role: 'Murid · Tim BKI-A02',
   },
   {
-    quote: 'Tiap kali anak ikut bimbingan, langsung dapat PDF ke WhatsApp. Skor dan catatan coach detail. Worth banget.',
+    quote: 'Setiap kali anak saya mengikuti sesi bimbingan, laporan PDF langsung dikirim ke WhatsApp. Skor dan catatan pembimbingnya cukup mendetail.',
     name: 'Pak Yudi', role: 'Wali Murid',
   },
 ]
 
 const FAQS = [
-  { q: 'BKI ini untuk siapa?', a: 'Murid SMP/SMA yang ikut bimbingan karya ilmiah — riset, makalah, atau presentasi untuk lomba. Plus coach, wali murid, dan admin sekolah yang mengelola.' },
-  { q: 'Apakah berbayar?', a: 'Akses dashboard gratis. Biaya bimbingan (sesi & coach) diatur oleh masing-masing program/sekolah, di luar platform.' },
-  { q: 'Bagaimana data anak saya dilindungi?', a: 'Database pakai Row-Level Security: tiap peran hanya bisa akses data yang menjadi haknya. Token Google disimpan server-side, tidak terekspos ke browser. Detail di halaman Kebijakan Privasi.' },
-  { q: 'Apakah saya wajib hubungkan akun Google?', a: 'Login bisa pakai email/password biasa. Akun Google opsional — hanya diperlukan kalau coach mau upload laporan otomatis ke Drive atau bikin Meet langsung dari kelas.' },
-  { q: 'Bagaimana cara mulai?', a: 'Klik "Masuk" di atas. Kalau belum punya akun, daftar atau minta admin sekolah/koordinator BKI untuk dibuatkan.' },
+  { q: 'Untuk siapa platform ini?', a: 'Murid jenjang SMP dan SMA yang mengikuti program bimbingan karya ilmiah—penelitian, penulisan makalah, atau presentasi untuk kompetisi—beserta pembimbing, wali murid, dan administrator yang mengelolanya.' },
+  { q: 'Apakah berbayar?', a: 'Akses dashboard tidak berbayar. Biaya program bimbingan (sesi dan honor pembimbing) diatur oleh masing-masing sekolah atau penyelenggara di luar platform.' },
+  { q: 'Bagaimana data pengguna dilindungi?', a: 'Basis data menerapkan Row-Level Security—setiap peran hanya dapat mengakses data yang menjadi haknya. Token Google disimpan di sisi server dan tidak pernah terekspos ke browser. Penjelasan selengkapnya tersedia di halaman Kebijakan Privasi.' },
+  { q: 'Apakah akun Google diperlukan?', a: 'Login dapat menggunakan email dan kata sandi. Akun Google bersifat opsional, hanya diperlukan apabila pembimbing ingin mengunggah laporan otomatis ke Drive atau membuat tautan Meet langsung dari kelas.' },
+  { q: 'Bagaimana cara memulai?', a: 'Klik tombol "Masuk" pada bagian atas halaman. Apabila belum memiliki akun, lakukan registrasi atau hubungi administrator sekolah untuk pembuatan akun.' },
 ]
 
 const DISCIPLINES = [
-  { icon: Microscope,   title: 'Penelitian', desc: 'Pendampingan ide, metode, hingga analisis data.' },
-  { icon: FileText,     title: 'Makalah',    desc: 'Bimbingan menulis ilmiah siap kompetisi.' },
-  { icon: Presentation, title: 'Presentasi', desc: 'Latihan deck dan public speaking lomba.' },
+  { icon: Microscope,   title: 'Penelitian', desc: 'Pendampingan rumusan masalah, metode, hingga analisis data.' },
+  { icon: FileText,     title: 'Makalah',    desc: 'Bimbingan penulisan ilmiah yang siap untuk kompetisi maupun publikasi.' },
+  { icon: Presentation, title: 'Presentasi', desc: 'Pelatihan deck visual dan public speaking untuk panggung lomba.' },
 ]
 
 const STATS = [
@@ -116,20 +116,15 @@ export function LandingPage() {
   }, [session, profile, onboarded, sessionRestored, user, navigate])
 
   return (
-    <div className="min-h-screen bg-white text-text-primary">
+    <div className="min-h-screen bg-white text-text-primary overflow-x-hidden">
       {/* ── Sticky nav ───────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b border-surface-100 bg-white/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10 h-14 sm:h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary-950 text-white flex items-center justify-center shadow-soft">
-              <GraduationCap className="h-4 w-4 sm:h-4.5 sm:w-4.5" strokeWidth={2.25} />
-            </div>
-            <div className="leading-tight">
-              <p className="font-extrabold text-primary-950 text-sm tracking-tight">BKI</p>
-              <p className="text-[9px] uppercase tracking-[0.16em] font-semibold text-text-tertiary hidden sm:block">
-                Bimbingan Karya Ilmiah
-              </p>
-            </div>
+          <Link to="/" className="leading-tight group">
+            <p className="font-extrabold text-primary-950 text-base tracking-tight group-hover:text-primary-800 transition-colors">BKI</p>
+            <p className="text-[9px] uppercase tracking-[0.16em] font-semibold text-text-tertiary hidden sm:block">
+              Bimbingan Karya Ilmiah
+            </p>
           </Link>
 
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-text-secondary">
@@ -214,18 +209,17 @@ export function LandingPage() {
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight text-primary-950 leading-[1.05] mb-5 sm:mb-6">
-                Bimbingan riset yang{' '}
+              <h1 className="text-[2rem] leading-[1.1] sm:text-5xl sm:leading-[1.05] lg:text-6xl xl:text-7xl font-extrabold tracking-tight text-primary-950 mb-4 sm:mb-6">
+                Satu platform untuk{' '}
                 <span className="relative inline-block">
-                  <span className="relative z-10">terstruktur</span>
-                  <span aria-hidden className="absolute left-0 right-0 bottom-1 h-3 sm:h-4 bg-brand-100" />
-                </span>
-                <br className="hidden sm:block" />
-                {' '}untuk anakmu.
+                  <span className="relative z-10">seluruh siklus</span>
+                  <span aria-hidden className="absolute left-0 right-0 bottom-0.5 sm:bottom-1 h-2.5 sm:h-3 lg:h-4 bg-brand-100 -z-0" />
+                </span>{' '}
+                bimbingan karya ilmiah.
               </h1>
 
-              <p className="text-base sm:text-lg lg:text-xl text-text-secondary leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0">
-                Jadwal, tugas, laporan, dan notifikasi wali — semua jalan otomatis di satu dashboard. Cocok untuk pembimbing karya ilmiah SMP/SMA.
+              <p className="text-sm sm:text-lg lg:text-xl text-text-secondary leading-relaxed mb-7 sm:mb-8 max-w-xl mx-auto lg:mx-0">
+                Jadwal kelas, penugasan, dokumentasi sesi, dan komunikasi dengan wali murid berjalan terintegrasi—dirancang untuk program bimbingan karya ilmiah jenjang SMP dan SMA.
               </p>
 
               {/* CTAs */}
@@ -247,18 +241,18 @@ export function LandingPage() {
               </div>
 
               {/* Micro-proof */}
-              <div className="flex items-center justify-center lg:justify-start gap-5 text-xs text-text-tertiary">
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2 text-xs text-text-tertiary">
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-accent-green" />
-                  Akun langsung pakai
+                  <Check className="h-3.5 w-3.5 text-accent-green flex-shrink-0" />
+                  Akun aktif seketika
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-accent-green" />
+                  <Check className="h-3.5 w-3.5 text-accent-green flex-shrink-0" />
                   Notifikasi WhatsApp
                 </span>
-                <span className="hidden sm:inline-flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-accent-green" />
-                  Drive otomatis
+                <span className="inline-flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-accent-green flex-shrink-0" />
+                  Google Drive
                 </span>
               </div>
             </div>
@@ -287,12 +281,12 @@ export function LandingPage() {
       </section>
 
       {/* ── Benefits / what you get ──────────────────────────────────── */}
-      <section id="fitur" className="py-16 sm:py-20 lg:py-28 bg-white">
+      <section id="fitur" className="py-14 sm:py-20 lg:py-28 bg-white">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10">
           <SectionHeader
-            eyebrow="Yang kamu dapat"
-            title="Empat fitur inti yang bikin bimbingan rapi."
-            description="Tidak ada lagi dokumen tercecer, jadwal lupa di-share, atau laporan yang gak sampai ke wali."
+            eyebrow="Fitur inti"
+            title="Empat modul yang membangun rutinitas bimbingan."
+            description="Mengurangi koordinasi manual—dokumentasi tercatat, jadwal tersinkronisasi, dan laporan terdistribusi secara otomatis."
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -313,12 +307,12 @@ export function LandingPage() {
       </section>
 
       {/* ── Product tour (alternating) ───────────────────────────────── */}
-      <section className="py-16 sm:py-20 lg:py-28 bg-surface-50 border-y border-surface-100">
+      <section className="py-14 sm:py-20 lg:py-28 bg-surface-50 border-y border-surface-100">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10">
           <SectionHeader
-            eyebrow="Tour produk"
-            title="Dibangun untuk semua peran di bimbingan."
-            description="Setiap orang yang terlibat punya tampilan yang sesuai perannya."
+            eyebrow="Tur produk"
+            title="Dirancang untuk semua peran dalam ekosistem bimbingan."
+            description="Setiap peran mendapatkan antarmuka dan perangkat yang sesuai dengan tanggung jawabnya."
             center
           />
 
@@ -363,12 +357,12 @@ export function LandingPage() {
       </section>
 
       {/* ── Cara kerja (3 steps) ─────────────────────────────────────── */}
-      <section id="cara-kerja" className="py-16 sm:py-20 lg:py-28 bg-white">
+      <section id="cara-kerja" className="py-14 sm:py-20 lg:py-28 bg-white">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10">
           <SectionHeader
             eyebrow="Cara kerja"
-            title="Tiga langkah, langsung jalan."
-            description="Tidak ada setup ribet — mulai dari daftar sampai kelas pertama, semua jelas."
+            title="Tiga langkah menuju bimbingan yang terorganisir."
+            description="Onboarding ringkas—dari pendaftaran akun hingga kelas pertama yang terjadwal."
             center
           />
           <div className="grid sm:grid-cols-3 gap-4 sm:gap-6 relative">
@@ -392,7 +386,8 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10">
           <SectionHeader
             eyebrow="Disiplin bimbingan"
-            title="Tiga arah, satu disiplin riset."
+            title="Tiga arah bimbingan, satu metodologi riset."
+            description="Setiap tim memilih kombinasi disiplin sesuai target lomba dan minatnya."
             center
           />
           <div className="grid sm:grid-cols-3 gap-4 sm:gap-5">
@@ -408,12 +403,12 @@ export function LandingPage() {
       </section>
 
       {/* ── Roles grid ───────────────────────────────────────────────── */}
-      <section className="py-16 sm:py-20 lg:py-28 bg-white">
+      <section className="py-14 sm:py-20 lg:py-28 bg-white">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10">
           <SectionHeader
-            eyebrow="Pilih peranmu"
+            eyebrow="Peran pengguna"
             title="Satu platform, empat dashboard."
-            description="Setiap peran punya tampilan dan tools yang spesifik untuk pekerjaannya."
+            description="Pilih peran Anda untuk masuk ke ruang kerja yang sesuai."
             center
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -439,11 +434,11 @@ export function LandingPage() {
       </section>
 
       {/* ── Testimonials ─────────────────────────────────────────────── */}
-      <section id="testimoni" className="py-16 sm:py-20 lg:py-28 bg-surface-50 border-y border-surface-100">
+      <section id="testimoni" className="py-14 sm:py-20 lg:py-28 bg-surface-50 border-y border-surface-100">
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10">
           <SectionHeader
-            eyebrow="Yang sudah pakai"
-            title="Cerita dari coach, murid, dan wali."
+            eyebrow="Testimoni"
+            title="Cerita dari pembimbing, murid, dan wali."
             center
           />
           <div className="grid md:grid-cols-3 gap-4 sm:gap-5">
@@ -474,7 +469,7 @@ export function LandingPage() {
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────────────── */}
-      <section id="faq" className="py-16 sm:py-20 lg:py-28 bg-white">
+      <section id="faq" className="py-14 sm:py-20 lg:py-28 bg-white">
         <div className="max-w-3xl mx-auto px-5 sm:px-6 lg:px-10">
           <SectionHeader
             eyebrow="Pertanyaan umum"
@@ -514,10 +509,10 @@ export function LandingPage() {
         <div aria-hidden className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-brand-500/20 blur-3xl" />
         <div className="relative max-w-4xl mx-auto px-5 sm:px-6 lg:px-10 py-16 sm:py-20 lg:py-24 text-center">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight mb-5">
-            Siap mulai bimbingan yang lebih rapi?
+            Mulai kelola bimbingan secara terstruktur.
           </h2>
           <p className="text-white/70 text-base sm:text-lg max-w-2xl mx-auto mb-8">
-            Daftar gratis dan langsung jalan. Atau hubungi admin sekolah untuk dibuatkan akun.
+            Daftarkan akun secara gratis, atau hubungi administrator sekolah Anda untuk pembuatan akun.
           </p>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
             <Button
@@ -543,19 +538,14 @@ export function LandingPage() {
         <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-10 py-12">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
             <div className="sm:col-span-2 lg:col-span-1">
-              <Link to="/" className="flex items-center gap-2.5 mb-4">
-                <div className="h-9 w-9 rounded-xl bg-primary-950 text-white flex items-center justify-center">
-                  <GraduationCap className="h-4.5 w-4.5" strokeWidth={2.25} />
-                </div>
-                <div className="leading-tight">
-                  <p className="font-extrabold text-primary-950 text-sm tracking-tight">BKI</p>
-                  <p className="text-[9px] uppercase tracking-[0.16em] font-semibold text-text-tertiary">
-                    Bimbingan Karya Ilmiah
-                  </p>
-                </div>
+              <Link to="/" className="inline-block leading-tight mb-4">
+                <p className="font-extrabold text-primary-950 text-base tracking-tight">BKI</p>
+                <p className="text-[9px] uppercase tracking-[0.16em] font-semibold text-text-tertiary">
+                  Bimbingan Karya Ilmiah
+                </p>
               </Link>
               <p className="text-sm text-text-tertiary leading-relaxed max-w-xs">
-                Platform bimbingan karya ilmiah untuk murid Indonesia.
+                Platform manajemen bimbingan karya ilmiah untuk pelajar Indonesia.
               </p>
             </div>
 
@@ -577,7 +567,7 @@ export function LandingPage() {
 
           <div className="pt-6 border-t border-surface-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-tertiary">
             <p>© {new Date().getFullYear()} BKI — Bimbingan Karya Ilmiah</p>
-            <p>Dibuat untuk pelajar Indonesia</p>
+            <p>Untuk pelajar Indonesia</p>
           </div>
         </div>
       </footer>
@@ -664,61 +654,61 @@ function HeroMockup() {
           <span className="ml-3 text-[10px] font-mono text-text-tertiary">bki.app/coach</span>
         </div>
 
-        <div className="p-5 sm:p-6">
+        <div className="p-4 sm:p-6">
           {/* Greeting */}
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <p className="text-xs text-text-tertiary mb-0.5">Senin, 19 Mei</p>
-              <p className="text-lg sm:text-xl font-extrabold text-primary-950">Halo, Bu Rina ✨</p>
+          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
+            <div className="min-w-0">
+              <p className="text-[11px] text-text-tertiary mb-0.5">Senin, 19 Mei</p>
+              <p className="text-base sm:text-xl font-extrabold text-primary-950 truncate">Selamat datang, Bu Rina</p>
             </div>
-            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center font-bold">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center font-bold flex-shrink-0">
               R
             </div>
           </div>
 
           {/* Stat strip */}
-          <div className="grid grid-cols-3 gap-2 mb-5">
+          <div className="grid grid-cols-3 gap-2 mb-4 sm:mb-5">
             {[
               { v: '3', l: 'Kelas hari ini' },
               { v: '12', l: 'Tugas aktif' },
               { v: '5', l: 'Tim aktif' },
             ].map((s) => (
-              <div key={s.l} className="rounded-xl bg-surface-50 p-3 text-center">
-                <p className="text-xl sm:text-2xl font-extrabold text-primary-950 tabular-nums leading-none">{s.v}</p>
-                <p className="text-[10px] text-text-tertiary mt-1 leading-tight">{s.l}</p>
+              <div key={s.l} className="rounded-xl bg-surface-50 p-2.5 sm:p-3 text-center">
+                <p className="text-lg sm:text-2xl font-extrabold text-primary-950 tabular-nums leading-none">{s.v}</p>
+                <p className="text-[9px] sm:text-[10px] text-text-tertiary mt-1 leading-tight">{s.l}</p>
               </div>
             ))}
           </div>
 
           {/* Next class */}
-          <div className="rounded-2xl bg-gradient-to-br from-primary-950 to-primary-800 text-white p-4 mb-3 relative overflow-hidden">
+          <div className="rounded-2xl bg-gradient-to-br from-primary-950 to-primary-800 text-white p-3.5 sm:p-4 relative overflow-hidden">
             <div aria-hidden className="absolute inset-0 bg-dot-grid-inv bg-grid-md opacity-50" />
             <div className="relative">
               <p className="text-[10px] uppercase tracking-wider font-bold text-white/60 mb-2">
                 Kelas berikutnya
               </p>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div>
-                  <p className="text-sm font-bold leading-tight">Diskusi metodologi · Tim BKI-A02</p>
-                  <p className="text-xs text-white/70 mt-1">Hari ini, 15.30 — 90 menit</p>
+              <div className="flex items-start justify-between gap-2 sm:gap-3 mb-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold leading-tight truncate">Diskusi metodologi · Tim A02</p>
+                  <p className="text-[11px] text-white/70 mt-1">Hari ini, 15.30 · 90 menit</p>
                 </div>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-accent-green/20 text-accent-green border border-accent-green/30 rounded-full px-2 py-1 flex-shrink-0">
                   <Video className="h-2.5 w-2.5" />
                   Meet
                 </span>
               </div>
-              <button className="text-xs font-bold text-white/90 inline-flex items-center gap-1.5 hover:gap-2 transition-all">
+              <button className="text-xs font-bold text-white/90 inline-flex items-center gap-1.5">
                 Buka kelas
                 <ArrowRight className="h-3 w-3" />
               </button>
             </div>
           </div>
 
-          {/* Task list mini */}
-          <div className="space-y-2">
+          {/* Task list mini — hidden on smallest screens to keep mockup compact */}
+          <div className="hidden sm:block space-y-2 mt-3">
             {[
-              { title: 'Review draf abstrak Tim A02', tag: 'A02', done: false },
-              { title: 'Cek progress eksperimen kontrol', tag: 'A04', done: true },
+              { title: 'Tinjau draf abstrak Tim A02', tag: 'A02', done: false },
+              { title: 'Periksa progres eksperimen kontrol', tag: 'A04', done: true },
             ].map((t) => (
               <div key={t.title} className="flex items-center gap-3 rounded-xl border border-surface-200 p-3">
                 <span className={cn(
@@ -787,7 +777,7 @@ function CoachMockup() {
         {[
           { time: '13.00', title: 'Eksperimen kontrol · Tim A01', media: 'Offline', color: 'bg-accent-amber/10 text-accent-amber border-accent-amber/30' },
           { time: '15.30', title: 'Diskusi metodologi · Tim A02', media: 'Meet',    color: 'bg-accent-green/10 text-accent-green border-accent-green/30', highlight: true },
-          { time: '18.00', title: 'Review draf · Tim A05',        media: 'Meet',    color: 'bg-accent-green/10 text-accent-green border-accent-green/30' },
+          { time: '18.00', title: 'Tinjau draf · Tim A05',        media: 'Meet',    color: 'bg-accent-green/10 text-accent-green border-accent-green/30' },
         ].map((c) => (
           <div key={c.title} className={cn(
             'rounded-xl border p-3.5 flex items-start gap-3',
@@ -813,14 +803,14 @@ function CoachMockup() {
 function StudentMockup() {
   return (
     <div>
-      <p className="text-xs text-text-tertiary mb-1">Tugas saya</p>
-      <p className="text-base sm:text-lg font-extrabold text-primary-950 mb-5">3 tugas aktif</p>
+      <p className="text-xs text-text-tertiary mb-1">Tugas aktif</p>
+      <p className="text-base sm:text-lg font-extrabold text-primary-950 mb-5">Tiga tugas menanti</p>
 
       <div className="space-y-2.5">
         {[
-          { title: 'Susun outline BAB 3 metodologi', due: '2 hari lagi', urgent: true },
-          { title: 'Latihan presentasi 5 menit',     due: '5 hari lagi', urgent: false },
-          { title: 'Submit revisi abstrak',          due: '1 minggu lagi', urgent: false },
+          { title: 'Susun outline BAB 3 metodologi',  due: '2 hari lagi',   urgent: true },
+          { title: 'Latihan presentasi 5 menit',      due: '5 hari lagi',   urgent: false },
+          { title: 'Kumpulkan revisi abstrak',        due: '1 minggu lagi', urgent: false },
         ].map((t) => (
           <div key={t.title} className="rounded-xl border border-surface-200 p-3.5 flex items-start gap-3">
             <span className="h-4 w-4 rounded border-2 border-surface-300 mt-0.5 flex-shrink-0" />
@@ -851,7 +841,7 @@ function ParentMockup() {
         <div className="space-y-2">
           {[
             { label: 'Disiplin',     score: 9 },
-            { label: 'Aktif',        score: 8 },
+            { label: 'Keaktifan',    score: 8 },
             { label: 'Komunikasi',   score: 9 },
             { label: 'Etika',        score: 10 },
             { label: 'Pemahaman',    score: 8 },
@@ -873,7 +863,7 @@ function ParentMockup() {
       <div className="rounded-xl border border-surface-200 p-3 flex items-start gap-2.5">
         <MessageCircle className="h-4 w-4 text-accent-green flex-shrink-0 mt-0.5" />
         <p className="text-[11px] text-text-secondary leading-relaxed">
-          Catatan coach: <span className="text-primary-950 font-medium">"Progress riset on track, semangatnya baik. Lanjutkan eksperimen kontrol minggu depan."</span>
+          Catatan pembimbing: <span className="text-primary-950 font-medium">"Progres riset sesuai target, antusiasme baik. Lanjutkan eksperimen kontrol pada pertemuan berikutnya."</span>
         </p>
       </div>
     </div>

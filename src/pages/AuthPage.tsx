@@ -132,14 +132,9 @@ export function AuthPage({ mode }: AuthPageProps) {
         />
 
         <div className="relative">
-          <Link to="/" className="inline-flex items-center gap-2.5 group">
-            <div className="h-10 w-10 rounded-xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center group-hover:bg-white/15 transition-colors">
-              <GraduationCap className="h-5 w-5" strokeWidth={2.5} />
-            </div>
-            <div className="leading-tight">
-              <p className="font-extrabold tracking-tight">BKI</p>
-              <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-white/60">Bimbingan Karya Ilmiah</p>
-            </div>
+          <Link to="/" className="inline-block leading-tight group">
+            <p className="font-extrabold tracking-tight group-hover:text-white/80 transition-colors">BKI</p>
+            <p className="text-[9px] uppercase tracking-[0.18em] font-semibold text-white/60">Bimbingan Karya Ilmiah</p>
           </Link>
         </div>
 
@@ -181,10 +176,12 @@ export function AuthPage({ mode }: AuthPageProps) {
         <div className="w-full max-w-md">
           {/* Mobile-only brand header */}
           <div className="lg:hidden text-center mb-8">
-            <Link to="/" className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-primary-950 shadow-lift mb-3">
-              <GraduationCap className="h-6 w-6 text-white" strokeWidth={2.5} />
+            <Link to="/" className="inline-block leading-tight">
+              <p className="font-extrabold text-primary-950 text-lg tracking-tight">BKI</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-text-tertiary mt-0.5">
+                Bimbingan Karya Ilmiah
+              </p>
             </Link>
-            <p className="text-xs uppercase tracking-[0.18em] font-bold text-primary-700">BKI</p>
           </div>
 
           <div className="bg-white rounded-3xl border border-surface-200 shadow-lift p-8 sm:p-10">
