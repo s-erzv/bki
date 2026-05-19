@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
@@ -38,6 +39,32 @@ export function useNotifications(opts: { unreadOnly?: boolean; limit?: number } 
 
 export function useUnreadCount() {
   const profileId = useAuthStore((s) => s.profile?.id)
+  const qc = useQueryClient()
+
+  // Realtime subscription: invalidate the count whenever a notification for
+  // this user is inserted/updated. Fallback polling still runs at 60s for
+  // robustness when the websocket drops.
+  useEffect(() => {
+    if (!profileId) return
+    const channel = supabase
+      .channel(`notifications:${profileId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_profile_id=eq.${profileId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ['unread_count', profileId] })
+          qc.invalidateQueries({ queryKey: ['notifications', profileId] })
+        },
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profileId, qc])
+
   return useQuery<number>({
     queryKey: ['unread_count', profileId],
     queryFn: async () => {

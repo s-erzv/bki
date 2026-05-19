@@ -250,6 +250,9 @@ export type Database = {
           drive_report_url?: string | null
         }
         Update: {
+          class_id?: string | null
+          team_id?: string
+          coach_id?: string | null
           session_date?: Iso
           duration_mins?: number | null
           media?: SessionMedia
