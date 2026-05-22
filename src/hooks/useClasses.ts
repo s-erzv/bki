@@ -81,7 +81,7 @@ export function useCreateClass() {
         .select()
         .single()
       if (error) throw error
-      const cls = data as Class
+      let cls = data as Class
 
       // Insert team links first — class_teams powers the Calendar event title.
       if (teamIds.length > 0) {
@@ -91,11 +91,11 @@ export function useCreateClass() {
         if (ctErr) throw ctErr
       }
 
-      // For online classes, auto-create the Meet link + Calendar event.
+      // For online classes, auto-create the Meet link + Calendar event ONLY IF NOT PROVIDED.
       // We DON'T fail the whole mutation if this errors — class still got
       // inserted, just the Meet link is missing. Surface as warning.
       let gmeetWarning: string | undefined
-      if (cls.media === 'online') {
+      if (cls.media === 'online' && !cls.gmeet_link) {
         const { data: resp, error: fnErr } = await supabase.functions.invoke('create-gmeet', {
           body: { classId: cls.id },
         })
@@ -105,8 +105,7 @@ export function useCreateClass() {
           gmeetWarning = resp.error
         } else if (resp?.gmeet_link) {
           // Refresh local row with the Meet link
-          (cls as Class).gmeet_link = resp.gmeet_link
-          ;(cls as Class).gcal_event_id = resp.gcal_event_id
+          cls = { ...cls, gmeet_link: resp.gmeet_link, gcal_event_id: resp.gcal_event_id }
         }
       }
 
@@ -126,7 +125,12 @@ export function useUpdateClass() {
       updates: ClassUpdate
       teamIds?: string[]   // if provided, replace class_teams
     }) => {
-      const { error } = await supabase.from('classes').update(updates).eq('id', classId)
+      const { data, error } = await supabase
+        .from('classes')
+        .update(updates)
+        .eq('id', classId)
+        .select()
+        .single()
       if (error) throw error
 
       // Replace-all strategy for class_teams when teamIds passed.
@@ -140,6 +144,7 @@ export function useUpdateClass() {
           if (insErr) throw insErr
         }
       }
+      return data as Class
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['classes'] }),
   })

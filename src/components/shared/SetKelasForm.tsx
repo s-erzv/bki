@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Video, MapPin, Clock, Calendar as CalendarIcon, Users as UsersIcon } from 'lucide-react'
+import { Video, MapPin, Clock, Calendar as CalendarIcon, Users as UsersIcon, Globe } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { cn } from '@/lib/utils'
 import { useCoachTeams } from '@/hooks/useTeam'
 import { useCreateClass, useUpdateClass, type ClassWithTeams } from '@/hooks/useClasses'
+import { useGoogleDriveAccess } from '@/hooks/useGoogleDriveAccess'
 import { toast } from '@/components/ui/use-toast'
 import { formatWIB } from '@/lib/utils'
 
@@ -25,6 +26,7 @@ const schema = z.object({
   media: z.enum(['online', 'offline']),
   location: z.string().optional(),
   maps_url: z.string().url('URL tidak valid').optional().or(z.literal('')),
+  gmeet_link: z.string().url('Link tidak valid').optional().or(z.literal('')),
   topic: z.string().min(1, 'Bahasan wajib diisi'),
   teamIds: z.array(z.string()).min(1, 'Pilih minimal 1 tim'),
 })
@@ -43,6 +45,7 @@ export function SetKelasForm({ open, onOpenChange, defaultDate, editClass }: Set
   const { data: teams = [] } = useCoachTeams()
   const createClass = useCreateClass()
   const updateClass = useUpdateClass()
+  const { hasAccess: hasGoogleSync } = useGoogleDriveAccess()
   const isEdit = !!editClass
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<SetKelasFormData>({
@@ -63,6 +66,7 @@ export function SetKelasForm({ open, onOpenChange, defaultDate, editClass }: Set
         media: editClass.media,
         location: editClass.location ?? '',
         maps_url: editClass.maps_url ?? '',
+        gmeet_link: editClass.gmeet_link ?? '',
         topic: editClass.topic ?? '',
         teamIds: (editClass.class_teams ?? []).map((ct) => ct.team_id),
       })
@@ -88,6 +92,7 @@ export function SetKelasForm({ open, onOpenChange, defaultDate, editClass }: Set
         media: data.media,
         location: data.location || null,
         maps_url: data.maps_url || null,
+        gmeet_link: data.gmeet_link || null,
         topic: data.topic,
       }
 
@@ -112,7 +117,7 @@ export function SetKelasForm({ open, onOpenChange, defaultDate, editClass }: Set
         } else {
           toast({
             title: 'Kelas berhasil dijadwalkan',
-            description: data.media === 'online' ? 'Link Google Meet dan event Calendar otomatis dibuat.' : undefined,
+            description: data.media === 'online' && hasGoogleSync ? 'Link Google Meet dan event Calendar otomatis dibuat.' : undefined,
           })
         }
       }
@@ -161,7 +166,7 @@ export function SetKelasForm({ open, onOpenChange, defaultDate, editClass }: Set
                     selected={media === 'online'}
                     icon={Video}
                     label="Google Meet"
-                    description="Auto-generate link"
+                    description={hasGoogleSync ? 'Auto-generate link' : 'Input link manual'}
                     onClick={() => setValue('media', 'online')}
                   />
                   <MediaOption
@@ -186,8 +191,19 @@ export function SetKelasForm({ open, onOpenChange, defaultDate, editClass }: Set
               )}
 
               {media === 'online' && (
-                <div className="rounded-xl border border-primary-100 bg-primary-50/40 px-3 py-2.5 text-xs text-text-secondary leading-relaxed">
-                  Link Google Meet akan otomatis dibuat saat kelas tersimpan (butuh akses Google Drive & Calendar — cek banner di dashboard).
+                <div className="space-y-3">
+                  {hasGoogleSync ? (
+                    <div className="rounded-xl border border-primary-100 bg-primary-50/40 px-3 py-2.5 text-xs text-text-secondary leading-relaxed">
+                      Link Google Meet akan otomatis dibuat saat kelas tersimpan.
+                    </div>
+                  ) : (
+                    <FormField label="Link Pertemuan (GMeet/Zoom/dll)" error={errors.gmeet_link?.message}>
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-text-tertiary" />
+                        <Input placeholder="https://meet.google.com/..." {...register('gmeet_link')} />
+                      </div>
+                    </FormField>
+                  )}
                 </div>
               )}
             </Section>

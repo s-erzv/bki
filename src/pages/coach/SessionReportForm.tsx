@@ -251,39 +251,38 @@ export function SessionReportForm() {
         ? await updateSession.mutateAsync({ sessionId, form: sessionPayload }).then(() => ({ id: sessionId }))
         : await createSession.mutateAsync(sessionPayload)
 
-      // PDF generation + Drive upload. Only attempt if coach has connected Drive.
-      // Failure here is non-fatal — session is already saved, we just couldn't
-      // produce the PDF artifact.
+      // PDF generation. Always generated regardless of Drive status.
       let pdfWarning: string | undefined
-      if (hasDriveAccess) {
-        try {
-          const team = teams.find((t) => t.id === step1Data.team_id)
-          const reportData: ReportData = {
-            team_code: team?.team_code ?? 'TIM',
-            team_research_title: team?.research_title ?? null,
-            coach_name: profile?.full_name ?? 'Pembimbing',
-            session_date: sessionDate,
-            duration_mins: step1Data.duration_mins,
-            media: step1Data.media,
-            location: step1Data.location || null,
-            topic: step1Data.topic,
-            achievement: step1Data.achievement || null,
-            homework: step1Data.homework || null,
-            evaluation: step1Data.evaluation || null,
-            students: studentScores.map((s) => ({
-              student_name: s.nama,
-              score_discipline: s.scores.score_discipline,
-              score_activeness: s.scores.score_activeness,
-              score_communication: s.scores.score_communication,
-              score_ethics: s.scores.score_ethics,
-              score_understanding: s.scores.score_understanding,
-              notes: s.notes || null,
-            })),
-          }
-          // Lazy-load the PDF lib only when submitting — ~600KB stays out of
-          // the initial bundle for every other route.
-          const { generateReportPdf, blobToBase64 } = await import('@/lib/report-pdf')
-          const blob = await generateReportPdf(reportData)
+      try {
+        const team = teams.find((t) => t.id === step1Data.team_id)
+        const reportData: ReportData = {
+          team_code: team?.team_code ?? 'TIM',
+          team_research_title: team?.research_title ?? null,
+          coach_name: profile?.full_name ?? 'Pembimbing',
+          session_date: sessionDate,
+          duration_mins: step1Data.duration_mins,
+          media: step1Data.media,
+          location: step1Data.location || null,
+          topic: step1Data.topic,
+          achievement: step1Data.achievement || null,
+          homework: step1Data.homework || null,
+          evaluation: step1Data.evaluation || null,
+          students: studentScores.map((s) => ({
+            student_name: s.nama,
+            score_discipline: s.scores.score_discipline,
+            score_activeness: s.scores.score_activeness,
+            score_communication: s.scores.score_communication,
+            score_ethics: s.scores.score_ethics,
+            score_understanding: s.scores.score_understanding,
+            notes: s.notes || null,
+          })),
+        }
+        // Lazy-load the PDF lib
+        const { generateReportPdf, blobToBase64 } = await import('@/lib/report-pdf')
+        const blob = await generateReportPdf(reportData)
+
+        if (hasDriveAccess) {
+          // Upload to Google Drive via Edge Function
           const base64 = await blobToBase64(blob)
           const { data: resp, error: fnErr } = await supabase.functions.invoke('upload-report-to-drive', {
             body: { sessionId: session.id, pdfBase64: base64 },
@@ -293,11 +292,33 @@ export function SessionReportForm() {
           } else if (resp?.error) {
             pdfWarning = resp.error
           }
-        } catch (pdfErr) {
-          pdfWarning = pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
+        } else {
+          // Upload to Supabase Storage
+          const dateStr = new Date(sessionDate).toISOString().slice(0, 10)
+          const fileName = `Laporan-${team?.team_code ?? 'TIM'}-${dateStr}.pdf`
+          const path = `reports/${session.id}/${fileName}`
+          
+          const { error: uploadErr } = await supabase.storage
+            .from('session-docs')
+            .upload(path, blob, {
+              contentType: 'application/pdf',
+              upsert: true,
+            })
+          
+          if (uploadErr) {
+            pdfWarning = `Gagal upload PDF ke storage: ${uploadErr.message}`
+          } else {
+            const { data: pub } = supabase.storage.from('session-docs').getPublicUrl(path)
+            // Update session with the storage URL
+            const { error: updateErr } = await supabase
+              .from('sessions')
+              .update({ drive_report_url: pub.publicUrl })
+              .eq('id', session.id)
+            if (updateErr) pdfWarning = `Gagal update URL laporan: ${updateErr.message}`
+          }
         }
-      } else {
-        pdfWarning = 'Hubungkan Google Drive di dashboard untuk auto-upload laporan PDF.'
+      } catch (pdfErr) {
+        pdfWarning = pdfErr instanceof Error ? pdfErr.message : String(pdfErr)
       }
 
       if (pdfWarning) {
@@ -308,7 +329,9 @@ export function SessionReportForm() {
       } else {
         toast({
           title: isEdit ? 'Laporan berhasil diupdate' : 'Laporan tersimpan!',
-          description: 'PDF terupload ke Drive tim (file lama otomatis di-replace).',
+          description: hasDriveAccess 
+            ? 'PDF terupload ke Drive tim (file lama otomatis di-replace).'
+            : 'PDF tersimpan di platform (Google Drive belum terhubung).',
         })
       }
       navigate('/coach/sessions')
