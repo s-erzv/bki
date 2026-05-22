@@ -80,10 +80,10 @@ const TESTIMONIALS = [
 
 const FAQS = [
   { q: 'Untuk siapa platform ini?', a: 'Murid jenjang SMP dan SMA yang mengikuti program bimbingan karya ilmiah—penelitian, penulisan makalah, atau presentasi untuk kompetisi—beserta pembimbing, wali murid, dan administrator yang mengelolanya.' },
-  { q: 'Apakah berbayar?', a: 'Akses dashboard tidak berbayar. Biaya program bimbingan (sesi dan honor pembimbing) diatur oleh masing-masing sekolah atau penyelenggara di luar platform.' },
+  { q: 'Bagaimana cara mendapatkan akses?', a: 'Pengguna dapat masuk ke platform menggunakan akun yang telah didaftarkan. Koordinasi mengenai akun bimbingan biasanya dikelola oleh sekolah atau koordinator tim terkait.' },
   { q: 'Bagaimana data pengguna dilindungi?', a: 'Basis data menerapkan Row-Level Security—setiap peran hanya dapat mengakses data yang menjadi haknya. Token Google disimpan di sisi server dan tidak pernah terekspos ke browser. Penjelasan selengkapnya tersedia di halaman Kebijakan Privasi.' },
   { q: 'Apakah akun Google diperlukan?', a: 'Login dapat menggunakan email dan kata sandi. Akun Google bersifat opsional, hanya diperlukan apabila pembimbing ingin mengunggah laporan otomatis ke Drive atau membuat tautan Meet langsung dari kelas.' },
-  { q: 'Bagaimana cara memulai?', a: 'Klik tombol "Masuk" pada bagian atas halaman. Apabila belum memiliki akun, lakukan registrasi atau hubungi administrator sekolah untuk pembuatan akun.' },
+  { q: 'Bagaimana cara mulai menggunakan platform?', a: 'Klik tombol "Masuk" pada bagian atas halaman untuk mengakses dashboard. Pastikan Anda telah memiliki akun yang valid sesuai dengan peran Anda (Pembimbing, Murid, atau Wali Murid).' },
 ]
 
 const DISCIPLINES = [
@@ -225,18 +225,18 @@ export function LandingPage() {
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center lg:justify-start gap-3 mb-8">
                 <Button
-                  onClick={() => navigate('/register')}
+                  onClick={() => navigate('/login')}
                   className="bg-primary-950 hover:bg-primary-900 text-white h-12 px-6 text-base font-semibold shadow-lift"
                 >
-                  Mulai Gratis
+                  Masuk ke Platform
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
                 <Button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate('/register')}
                   variant="outline"
                   className="h-12 px-6 text-base font-semibold border-surface-300 text-primary-950 hover:bg-surface-50"
                 >
-                  Sudah punya akun
+                  Belum punya akun? Daftar
                 </Button>
               </div>
 
@@ -244,7 +244,7 @@ export function LandingPage() {
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2 text-xs text-text-tertiary">
                 <span className="inline-flex items-center gap-1.5">
                   <Check className="h-3.5 w-3.5 text-accent-green flex-shrink-0" />
-                  Akun aktif seketika
+                  Dashboard Terpusat
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Check className="h-3.5 w-3.5 text-accent-green flex-shrink-0" />
@@ -512,22 +512,22 @@ export function LandingPage() {
             Mulai kelola bimbingan secara terstruktur.
           </h2>
           <p className="text-white/70 text-base sm:text-lg max-w-2xl mx-auto mb-8">
-            Daftarkan akun secara gratis, atau hubungi administrator sekolah Anda untuk pembuatan akun.
+            Gunakan platform untuk koordinasi tim, dokumentasi sesi, dan pemantauan tugas dalam satu dashboard terintegrasi.
           </p>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
             <Button
-              onClick={() => navigate('/register')}
+              onClick={() => navigate('/login')}
               className="bg-white text-primary-950 hover:bg-white/90 h-12 px-6 text-base font-bold"
             >
-              Daftar Gratis
+              Masuk Sekarang
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
             <Button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/register')}
               variant="outline"
               className="border-white/30 text-white hover:bg-white/10 hover:text-white h-12 px-6 text-base font-bold bg-transparent"
             >
-              Masuk
+              Daftar Akun
             </Button>
           </div>
         </div>
